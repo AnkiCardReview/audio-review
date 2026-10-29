@@ -355,12 +355,35 @@ def morning_send(progress: Progress) -> None:
     send(path, progress)
 
 
+def predict_tomorrow(wait_for_anki: bool = True) -> None:
+    """Being tested: make tomorrow's list now, on a copy of the collection (morning.py), and keep
+    it on this computer so the morning list can be compared with it. Nothing goes to the phone.
+    When Anki has just closed, waits (up to 2 minutes) for it to finish writing the collection."""
+    from . import morning
+
+    try:
+        wal = Path(json.loads(morning.SETTINGS.read_text())["collection"] + "-wal")
+        for _ in range(120 if wait_for_anki else 0):
+            if not wal.exists():
+                break
+            time.sleep(1)
+        started = time.time()
+        pack = morning.save_prediction()
+        n = sum(1 for c in pack["cards"] if c["due_day"] <= pack["anki_today"])
+        log(f"prediction: tomorrow's list (Anki day {pack['anki_today']}) has {n} cards, saved for the "
+            f"morning check ({time.time() - started:.0f} s)")
+    except Exception as err:  # only a test: never stop the overnight job
+        log(f"prediction: not made ({err})")
+
+
 def overnight(pack_path: Path, wait_until: float | None = None) -> None:
     """Started when Anki closes. On the charger in the evening, keep the laptop awake (the screen
     can still turn off) until shortly after Anki's next day starts, then send that day's exact
     list, so the phone has it before the morning drive even if the laptop can't wake itself for
     the 4:30 task. Gives up as soon as the laptop is unplugged, and skips the send if today's
-    list already reached the phone (the 4:30 task, or Anki opened and closed again)."""
+    list already reached the phone (the 4:30 task, or Anki opened and closed again).
+    First it saves tomorrow's predicted list, for the morning check (being tested)."""
+    predict_tomorrow()
     if not take_lock(OVERNIGHT_LOCK):
         log("overnight: already waiting for the morning list")
         return
@@ -649,6 +672,7 @@ def main() -> None:
     o = sub.add_parser("overnight", help="on the charger, stay awake until Anki's next day, then send the morning list")
     o.add_argument("--pack", type=Path, default=PACK)
     o.add_argument("--wait-until", type=float, help="epoch seconds (for testing; default: rollover + 35 min)")
+    sub.add_parser("predict", help="save tomorrow's list now, for the morning check (being tested)")
     sub.add_parser("schedule", help="create or update the daily morning-list task")
     sub.add_parser("unschedule", help="remove the daily morning-list task")
     d = sub.add_parser("delete-grades", help="delete grade files from the relay once they're applied")
@@ -666,6 +690,8 @@ def main() -> None:
         sys.stdout.flush()
         sys.stderr.flush()
         os._exit(0)
+    elif args.cmd == "predict":
+        predict_tomorrow(wait_for_anki=False)
     elif args.cmd == "status":
         print(STATUS.read_text() if STATUS.exists() else "{}")
     elif args.cmd == "link":
