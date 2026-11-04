@@ -11,7 +11,7 @@
   // A local test relay can be set on a localhost page only (tools: wrangler dev).
   const RELAY = (location.hostname === 'localhost' && localStorage.getItem('relayUrl'))
     || 'https://car-review-relay.ankicardreview.workers.dev/v1';
-  const APP_VERSION = 17; // also in index.html (app.js?v=); sent with grades so problems can be traced
+  const APP_VERSION = 18; // also in index.html (app.js?v=); sent with grades so problems can be traced
   const AUDIO_CAP = 400e6;     // bytes of audio kept on the phone; the oldest-used clips go first
   const AUDIO_KEEP_DAYS = 60;  // clips no list has used for this long are removed
   const $ = (id) => document.getElementById(id);
@@ -1202,8 +1202,17 @@
       saveKeys();
       return;
     }
-    if (!driving || e.repeat || e.metaKey || e.altKey) return;
     const action = Object.keys(keyMap).find((a) => keyMap[a].includes(k));
+    // Trying a remote: with Remote keys open (and no session), show what each button sends and
+    // what it would do, without doing it.
+    if (!driving && $('keys-panel').open) {
+      if (action || k.length === 1 || /^(arrow|page|enter|backspace|escape|tab|home|end|f\d)/.test(k)) e.preventDefault();
+      const label = action ? KEY_ACTIONS.find(([a]) => a === action)[1] : 'not used (tap + Add next to an action to use it)';
+      $('key-test').innerHTML = `<b>${esc(keyName(k))}</b> → ${esc(label)}`;
+      $('key-test').classList.toggle('used', !!action);
+      return;
+    }
+    if (!driving || e.repeat || e.metaKey || e.altKey) return;
     if (!action) return;
     e.preventDefault();
     pressed('keys', KEY_DO[action])();

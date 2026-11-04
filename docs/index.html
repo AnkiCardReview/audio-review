@@ -119,6 +119,9 @@
   .keys { display: flex; flex-wrap: wrap; gap: 6px; }
   button.key { width: auto; margin: 0; padding: 4px 10px; font-size: 14px; border-radius: 999px; background: var(--panel2); }
   button.key.add { color: var(--accent); background: transparent; border-style: dashed; }
+  .key-test { background: var(--panel2); border: 1px dashed var(--border); border-radius: 12px; padding: 14px; text-align: center; color: var(--muted); margin: 8px 0; }
+  .key-test.used { border-style: solid; border-color: var(--good); color: var(--text); }
+  .key-test b { color: var(--text); font-size: 20px; }
 </style>
 </head>
 <body>
@@ -219,9 +222,11 @@
         <input id="answer-secs" class="secs" type="number" min="1" max="60" step="1" value="8" inputmode="numeric"> seconds</label>
       <p class="hint">Counts from the end of the question. Press ⏭ or ⏮ sooner and they work as usual. You still grade every card yourself.</p>
     </div>
-    <details class="panel">
+    <details class="panel" id="keys-panel">
       <summary>Remote keys</summary>
       <p class="hint">For a Bluetooth remote, page turner, keyboard, or a game controller in keyboard mode (like the 8BitDo Zero 2). Tap <b>+ Add</b>, then press the button on your remote. Tap a key to remove it. Keys only reach the app while it's on screen, so turn on <b>Keep the screen on</b> (walking mode does it by itself).</p>
+      <p class="hint"><b>Try your remote:</b> connect it to this phone (Settings ▸ Bluetooth; a controller like the 8BitDo goes in the same keyboard mode you use with Anki), keep this section open, and press its buttons.</p>
+      <div id="key-test" class="key-test">Press a button on your remote…</div>
       <div id="key-rows"></div>
       <button id="keys-reset">Reset to the standard keys</button>
     </details>
@@ -263,6 +268,6 @@
     <p class="hint d-help">Car buttons or headphones: ⏭ answer, ⏭ again = Good, ⏮ = Again.<br>On a question: ⏮ repeats it, ⏮⏮ goes back a card, ⏮⏮⏮ skips it.<br>Press about once a second; most cars drop faster presses.</p>
   </section>
 </main>
-<script src="app.js?v=17"></script>
+<script src="app.js?v=18"></script>
 </body>
 </html>
