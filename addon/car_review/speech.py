@@ -107,6 +107,8 @@ def skip_reason(front_html: str, answers_html: list[str], fields: dict[str, str]
 CLOZE = re.compile(r"\{\{c(\d+)::((?:(?!\}\}).)*?)(?:::((?:(?!\}\}).)*?))?\}\}", re.S)
 BLANK_MARK = "\u0001{}\u0001"  # survives the text clean-up untouched
 BLANK_SPLIT = re.compile("\u0001(\\d+)\u0001")
+# A cloze with the letters joined to it on either side: "{{c1::hypo}}kalemia", "{{c1::B}}reathing".
+CLOZE_IN_WORD = re.compile(r"([A-Za-z]*)" + CLOZE.pattern + r"([A-Za-z]*)", re.S)
 
 
 def to_speech(front_html: str, cloze_number: int, fields: dict[str, str] | None = None) -> Spoken:
@@ -115,13 +117,23 @@ def to_speech(front_html: str, cloze_number: int, fields: dict[str, str] | None 
     hints: list[str | None] = []
 
     def replace(m: re.Match) -> str:
-        if int(m.group(1)) != cloze_number:
-            return m.group(2)  # other clozes are read as normal text
-        answers_html.append(m.group(2))
-        hints.append(m.group(3) or None)
-        return f" {BLANK_MARK.format(len(answers_html) - 1)} "
+        before, number, content, hint, after = m.groups()
+        if int(number) != cloze_number:
+            return before + content + after  # other clozes are read as normal text
+        hints.append(hint or None)
+        mark = f" {BLANK_MARK.format(len(answers_html))} "
+        part = _strip_tags(content).strip()
+        # (One joined letter isn't a word part: "q{{c1::annually}}" is "every year".)
+        if len(before + after) >= 2 and re.fullmatch(r"[A-Za-z]+", part):
+            # Part of a word is hidden: the question stays as it is ("blank kalemia"), and the
+            # answer says the whole word ("hypokalemia", not "hypo").
+            answers_html.append(before + part + after)
+            spoken.changes.add("word part")
+        else:
+            answers_html.append(content)
+        return before + mark + after
 
-    with_marks = CLOZE.sub(replace, front_html)
+    with_marks = CLOZE_IN_WORD.sub(replace, front_html)
     if not answers_html:
         spoken.skip = "no blank for this card"
         return spoken
