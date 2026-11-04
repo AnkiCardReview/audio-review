@@ -11,7 +11,7 @@
   // A local test relay can be set on a localhost page only (tools: wrangler dev).
   const RELAY = (location.hostname === 'localhost' && localStorage.getItem('relayUrl'))
     || 'https://car-review-relay.ankicardreview.workers.dev/v1';
-  const APP_VERSION = 14; // also in index.html (app.js?v=); sent with grades so problems can be traced
+  const APP_VERSION = 15; // also in index.html (app.js?v=); sent with grades so problems can be traced
   const AUDIO_CAP = 400e6;     // bytes of audio kept on the phone; the oldest-used clips go first
   const AUDIO_KEEP_DAYS = 60;  // clips no list has used for this long are removed
   const $ = (id) => document.getElementById(id);
@@ -399,6 +399,7 @@
         if (Array.isArray(list.bundles)) await fetchBundles(); else await downloadClips();
         await tidyAudio();
         await sendHave();
+        noteClipCount();
         await clearFetched();
       }
       offline = false;
@@ -670,7 +671,7 @@
     $('t-body').innerHTML = rows.map(([k, v]) => `<div class="stat"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')
       || '<p>No reviews yet today.</p>';
     $('t-sessions').innerHTML = d.sessions.map((x) => {
-      const how = x.buttons === undefined ? '' : x.buttons >= x.screen ? ' · hands-free' : ' · on screen';
+      const how = x.buttons === undefined ? '' : ` · ${[['hands-free', x.buttons], ['on screen', x.screen], ['remote', x.keys || 0]].sort((a, b) => b[1] - a[1])[0][0]}`;
       return `<div class="session"><span>${esc(clock(x.start))}</span><b>${minutes(x.end - x.start)} min · ${x.grades.length} answers${how}</b></div>`;
     }).join('');
     $('t-sessions-head').classList.toggle('hidden', !d.sessions.length);
@@ -861,6 +862,8 @@
     $('d-back-label').textContent = left;
     $('d-fwd-label').textContent = right;
     $('d-controls').className = `row controls stage-${cls}`;
+    $('z-left-label').textContent = left;
+    $('z-right-label').textContent = right;
     $('d-fwd').disabled = stage === 'done' || stage === 'idle';
     $('d-skip').disabled = stage !== 'question';
     $('d-prev').disabled = !history.length;
@@ -1022,12 +1025,12 @@
     goNext(); // straight on to the next question: no sound in between
   }
 
-  // Keeps the screen from locking during a session when that setting is on (for reviewing on
-  // screen, e.g. walking). The browser lets go of it whenever the app is hidden.
+  // Keeps the screen from locking during a session when that setting (or walking mode) is on.
+  // The browser lets go of it whenever the app is hidden.
   let wakeLock = null;
   async function keepScreenOn(on) {
     try {
-      if (on && $('keep-awake').checked && navigator.wakeLock && !wakeLock) {
+      if (on && ($('keep-awake').checked || walking()) && navigator.wakeLock && !wakeLock) {
         wakeLock = await navigator.wakeLock.request('screen');
         wakeLock.addEventListener('release', () => { wakeLock = null; });
       } else if (!on && wakeLock) {
@@ -1041,7 +1044,7 @@
   async function startDrive() {
     driving = true;
     driveStartedAt = now();
-    session = { start: driveStartedAt, end: driveStartedAt, buttons: 0, screen: 0 };
+    session = { start: driveStartedAt, end: driveStartedAt, buttons: 0, screen: 0, keys: 0 };
     state.sessions = state.sessions || [];
     state.sessions.push(session);
     saveState();
@@ -1059,6 +1062,7 @@
       navigator.mediaSession.setActionHandler('play', () => player.paused && playSilence());
       navigator.mediaSession.setActionHandler('pause', () => setTimeout(() => player.paused && playSilence(), 300));
     }
+    $('drive').classList.toggle('walk', walking());
     show('drive');
     setScreen('Getting the cards ready…');
     await loadForDrive();
@@ -1086,6 +1090,101 @@
     runSync('after Stop'); // sends the answers; the list check is a tiny "unchanged" reply
   }
 
+  // ---------- On the screen: walking mode, remotes and keyboards ----------
+  // The left button (and left half, and the "again" key) does what its label says: hear the
+  // question again, Again, or, with no card up, go back a card. No double presses on screen.
+  function leftAction() {
+    if (stage === 'question') { markPress('b'); backRun.n = 0; repeatQuestion(); } else back();
+  }
+  function backACard() { markPress('b'); previousCard(); }
+  function repeatAction() {
+    markPress('b');
+    if (stage === 'question') { backRun.n = 0; repeatQuestion(); } else if (stage === 'answer') playClip(current.a_audio);
+  }
+  const walking = () => $('walk-mode').checked;
+
+  // Walking mode: the whole screen is two buttons, and a swipe to the right goes back a card.
+  let touch = null;
+  $('d-zones').addEventListener('pointerdown', (e) => { touch = { x: e.clientX, y: e.clientY }; });
+  $('d-zones').addEventListener('pointercancel', () => { touch = null; });
+  $('d-zones').addEventListener('pointerup', (e) => {
+    if (!touch || !driving) return;
+    const dx = e.clientX - touch.x;
+    const dy = e.clientY - touch.y;
+    touch = null;
+    if (dx > 60 && Math.abs(dy) < dx) { pressed('screen', backACard)(); return; }
+    if (Math.hypot(dx, dy) > 25) return; // a swipe some other way: not a tap
+    const rect = $('d-zones').getBoundingClientRect();
+    pressed('screen', e.clientX < rect.left + rect.width / 2 ? leftAction : forward)();
+  });
+
+  // Keys from a Bluetooth remote, page turner, keyboard, or a controller in keyboard mode (like
+  // the 8BitDo Zero 2). Each action can have several keys, changed under Remote keys on the home
+  // screen. Phones only pass keys to the app on screen, so the screen has to stay on.
+  const KEY_ACTIONS = [
+    ['forward', 'Show answer, then Good'],
+    ['again', 'Again (on a question: hear it again)'],
+    ['back', 'Back a card'],
+    ['repeat', 'Hear it again'],
+  ];
+  const DEFAULT_KEYS = { forward: ['g', ' ', 'arrowright', 'pagedown', 'enter'], again: ['j', '1', 'arrowleft', 'pageup'], back: ['k', 'z', 'backspace'], repeat: ['h', 'r'] };
+  const KEY_DO = { forward, again: leftAction, back: backACard, repeat: repeatAction };
+  let keyMap = (() => {
+    try { return { ...DEFAULT_KEYS, ...JSON.parse(localStorage.getItem('keys') || '{}') }; } catch { return { ...DEFAULT_KEYS }; }
+  })();
+  let capturing = null; // the action waiting for its new key
+  const keyName = (k) => ({ ' ': 'Space', arrowright: '→', arrowleft: '←', arrowup: '↑', arrowdown: '↓', pagedown: 'Page Down',
+    pageup: 'Page Up', enter: 'Enter', backspace: 'Backspace' }[k] || (k.length === 1 ? k.toUpperCase() : k));
+  function saveKeys() {
+    try { localStorage.setItem('keys', JSON.stringify(keyMap)); } catch { /* the defaults still work */ }
+    renderKeys();
+  }
+  function renderKeys() {
+    $('key-rows').innerHTML = KEY_ACTIONS.map(([action, label]) => `<div class="keyrow"><span>${esc(label)}</span><div class="keys">${
+      keyMap[action].map((k) => `<button class="key" data-action="${action}" data-key="${esc(k)}" title="Remove">${esc(keyName(k))} ×</button>`).join('')
+    }<button class="key add" data-add="${action}">${capturing === action ? 'Press a key…' : '+ Add'}</button></div></div>`).join('');
+  }
+  $('key-rows').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.add) { capturing = capturing === b.dataset.add ? null : b.dataset.add; renderKeys(); return; }
+    keyMap[b.dataset.action] = keyMap[b.dataset.action].filter((k) => k !== b.dataset.key);
+    saveKeys();
+  });
+  $('keys-reset').addEventListener('click', () => { keyMap = { ...DEFAULT_KEYS }; capturing = null; saveKeys(); });
+  document.addEventListener('keydown', (e) => {
+    const k = e.key.toLowerCase();
+    if (capturing) {
+      e.preventDefault();
+      if (k !== 'escape') { // Esc cancels
+        for (const action of Object.keys(keyMap)) keyMap[action] = keyMap[action].filter((x) => x !== k);
+        keyMap[capturing].push(k);
+      }
+      capturing = null;
+      saveKeys();
+      return;
+    }
+    if (!driving || e.repeat || e.metaKey || e.altKey) return;
+    const action = Object.keys(keyMap).find((a) => keyMap[a].includes(k));
+    if (!action) return;
+    e.preventDefault();
+    pressed('keys', KEY_DO[action])();
+  });
+
+  // ---------- Is the phone keeping the audio? ----------
+  // Phones may delete a web app's stored data when space runs low. If clips go missing between
+  // two openings (and Clear audio wasn't used), say so in the log.
+  function noteClipCount() { try { localStorage.setItem('clipCount', String(audioReady.size)); } catch { /* only a check */ } }
+  async function checkAudioKept() {
+    const before = Number(localStorage.getItem('clipCount') || 0);
+    if (before && audioReady.size < before) {
+      log(`audio: ${before - audioReady.size} of ${before} clips went missing since the app was last open (the phone removed them)`);
+    }
+    const kept = await navigator.storage?.persisted?.().catch(() => null);
+    if (kept === false) log("audio: the phone may remove this app's audio when space runs low (storage isn't marked as kept)");
+    noteClipCount();
+  }
+
   // ---------- Startup ----------
   async function init() {
     const speedSaved = localStorage.getItem('speed');
@@ -1095,6 +1194,8 @@
     $('auto-answer').checked = localStorage.getItem('autoAnswer') === '1';
     $('answer-secs').value = localStorage.getItem('answerSecs') || '8';
     $('keep-awake').checked = localStorage.getItem('keepAwake') === '1';
+    $('walk-mode').checked = localStorage.getItem('walkMode') === '1';
+    renderKeys();
 
     // Pairing link from the add-on's QR code: #pair=<secret> (never sent to any server).
     // A Home Screen app on iPhone gets its own storage, separate from Safari's, so in Safari the
@@ -1125,6 +1226,7 @@
     await loadState();
     showHome();
     log(`app version ${APP_VERSION} started`);
+    await checkAudioKept();
     syncIfNeeded('opened');
   }
 
@@ -1137,6 +1239,7 @@
     for (const key of ['clipMeta', 'haveSent']) await DB.del('kv', key);
     audioReady = new Set();
     clipMeta = {};
+    noteClipCount();
     synced.cleared = true;
     await saveSync();
     log('audio cleared from this phone');
@@ -1145,11 +1248,8 @@
   $('intro-done').addEventListener('click', () => { localStorage.setItem('introDone', '1'); showHome(); window.scrollTo(0, 0); });
   $('show-intro').addEventListener('click', () => { localStorage.removeItem('introDone'); showHome(); window.scrollTo(0, 0); });
   $('d-fwd').addEventListener('click', pressed('screen', forward));
-  // On the screen, the left button does what it says: hear the question again, Again, or go back.
-  $('d-back').addEventListener('click', pressed('screen', () => {
-    if (stage === 'question') { markPress('b'); backRun.n = 0; repeatQuestion(); } else back();
-  }));
-  $('d-prev').addEventListener('click', pressed('screen', () => { markPress('b'); previousCard(); }));
+  $('d-back').addEventListener('click', pressed('screen', leftAction));
+  $('d-prev').addEventListener('click', pressed('screen', backACard));
   $('d-skip').addEventListener('click', pressed('screen', () => {
     if (stage !== 'question' || !confirm("Skip this card in the car from now on? (It doesn't work as audio.) It stays due in Anki as normal.")) return;
     markPress('b');
@@ -1158,8 +1258,9 @@
   $('d-stop').addEventListener('click', stopDrive);
   $('keep-awake').addEventListener('change', () => {
     localStorage.setItem('keepAwake', $('keep-awake').checked ? '1' : '0');
-    if (driving) keepScreenOn($('keep-awake').checked);
+    if (driving) keepScreenOn($('keep-awake').checked || walking());
   });
+  $('walk-mode').addEventListener('change', () => localStorage.setItem('walkMode', $('walk-mode').checked ? '1' : '0'));
   $('speed').addEventListener('input', () => {
     $('speed-val').textContent = Number($('speed').value).toFixed(1);
     localStorage.setItem('speed', $('speed').value);

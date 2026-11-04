@@ -88,6 +88,10 @@ Press **Finish**.
 
 Press at a steady pace, about once a second: many cars pass on at most one button press per second, so faster presses can be lost. Each ⏮ counts toward a double or triple for about 2 seconds after the one before. Nothing plays on its own: after a question, it waits silently as long as you like. Cards you answer **Again** come back after your learning step, just as in Anki.
 
+**Walking or on a treadmill:** in the app, turn on **Walking mode**. During a session the whole screen is two buttons: the left half is Again (on a question, it repeats it) and the right half shows the answer, then Good. Swipe right anywhere to go back a card. The screen stays on.
+
+**A Bluetooth remote:** a remote, page turner, keyboard or game controller in keyboard mode (like the 8BitDo Zero 2) works while the app is on screen. The standard keys: G, Space, → or Page Down = show answer, then Good; J, 1, ← or Page Up = Again; K, Z or Backspace = back a card; H or R = hear it again. Change them under **Remote keys** in the app: tap **+ Add**, then press the button.
+
 > **Safety:** set up and tap Start before you move. While driving, use only the steering-wheel buttons and never look at or touch the phone. If a card needs thought, let it wait.
 
 **When you arrive:**

@@ -98,6 +98,27 @@
   .controls.stage-a #d-back { background: #3a1f1f; border-color: #5a2a2a; color: #ffd3cf; }
   .controls.stage-a #d-fwd { background: #1d3527; border-color: #2a5a3c; color: #c9f5da; }
   .d-help { font-size: 13px; text-align: center; margin: 6px 0 0; }
+
+  /* Walking mode: the screen below the top bar is two big buttons; swipe right = back a card */
+  .zones { display: none; }
+  #drive.walk { position: relative; }
+  #drive.walk .d-small, #drive.walk #d-controls, #drive.walk .d-help { display: none; }
+  #drive.walk #card-text { font-size: 22px; }
+  #drive.walk .zones {
+    display: flex; position: absolute; left: -16px; right: -16px; top: 92px; bottom: calc(-1 * max(24px, env(safe-area-inset-bottom)));
+    touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  .zones > div { flex: 1; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 46px; }
+  .zones span { color: var(--text); font-size: 17px; font-weight: 600; background: var(--panel2); border: 1px solid var(--border); border-radius: 999px; padding: 10px 18px; }
+  .zones .z-hint { position: absolute; left: 0; right: 0; bottom: 16px; padding: 0; text-align: center; font-size: 13px; color: var(--muted); }
+
+  /* Remote keys */
+  .keyrow { padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .keyrow:last-child { border-bottom: none; }
+  .keyrow > span { display: block; font-size: 15px; margin-bottom: 4px; }
+  .keys { display: flex; flex-wrap: wrap; gap: 6px; }
+  button.key { width: auto; margin: 0; padding: 4px 10px; font-size: 14px; border-radius: 999px; background: var(--panel2); }
+  button.key.add { color: var(--accent); background: transparent; border-style: dashed; }
 </style>
 </head>
 <body>
@@ -193,10 +214,17 @@
       <input id="speed" type="range" min="0.8" max="2.0" step="0.1" value="1.2">
       <label><input id="show-text" type="checkbox"> Show card text on screen (parked, or walking)</label>
       <label><input id="keep-awake" type="checkbox"> Keep the screen on during a session</label>
+      <label><input id="walk-mode" type="checkbox"> Walking mode: tap the left or right half of the screen, swipe right to go back a card</label>
       <label><input id="auto-answer" type="checkbox"> Play the answer by itself after
         <input id="answer-secs" class="secs" type="number" min="1" max="60" step="1" value="8" inputmode="numeric"> seconds</label>
       <p class="hint">Counts from the end of the question. Press ⏭ or ⏮ sooner and they work as usual. You still grade every card yourself.</p>
     </div>
+    <details class="panel">
+      <summary>Remote keys</summary>
+      <p class="hint">For a Bluetooth remote, page turner, keyboard, or a game controller in keyboard mode (like the 8BitDo Zero 2). Tap <b>+ Add</b>, then press the button on your remote. Tap a key to remove it. Keys only reach the app while it's on screen, so turn on <b>Keep the screen on</b> (walking mode does it by itself).</p>
+      <div id="key-rows"></div>
+      <button id="keys-reset">Reset to the standard keys</button>
+    </details>
     <details class="panel">
       <summary>More</summary>
       <button id="show-intro">How the buttons work</button>
@@ -227,9 +255,14 @@
       <button id="d-back"><small>⏮</small><span id="d-back-label">Back</span></button>
       <button id="d-fwd"><small>⏭</small><span id="d-fwd-label">Forward</span></button>
     </div>
+    <div id="d-zones" class="zones" aria-hidden="true">
+      <div><span id="z-left-label"></span></div>
+      <div><span id="z-right-label"></span></div>
+      <div class="z-hint">Swipe right to go back a card</div>
+    </div>
     <p class="hint d-help">Car buttons or headphones: ⏭ answer, ⏭ again = Good, ⏮ = Again.<br>On a question: ⏮ repeats it, ⏮⏮ goes back a card, ⏮⏮⏮ skips it.<br>Press about once a second; most cars drop faster presses.</p>
   </section>
 </main>
-<script src="app.js?v=14"></script>
+<script src="app.js?v=15"></script>
 </body>
 </html>
