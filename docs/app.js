@@ -11,7 +11,7 @@
   // A local test relay can be set on a localhost page only (tools: wrangler dev).
   const RELAY = (location.hostname === 'localhost' && localStorage.getItem('relayUrl'))
     || 'https://car-review-relay.ankicardreview.workers.dev/v1';
-  const APP_VERSION = 15; // also in index.html (app.js?v=); sent with grades so problems can be traced
+  const APP_VERSION = 16; // also in index.html (app.js?v=); sent with grades so problems can be traced
   const AUDIO_CAP = 400e6;     // bytes of audio kept on the phone; the oldest-used clips go first
   const AUDIO_KEEP_DAYS = 60;  // clips no list has used for this long are removed
   const $ = (id) => document.getElementById(id);
@@ -128,7 +128,8 @@
   }
 
   // ---------- App state ----------
-  let list = null;           // the car list from the add-on
+  let rawList = null;        // the car list as downloaded from the add-on
+  let list = null;           // the list in use: rawList, or its next day's part once that day has begun
   let state = null;          // today's progress on this phone
   let audioReady = new Set();// clip names stored on the phone
   let clipMeta = {};         // clip name -> [bytes, the last Anki day a list used it]
@@ -159,12 +160,38 @@
     try { backup = JSON.parse(localStorage.getItem('state') || 'null'); } catch { backup = null; }
     const progress = (x) => (x ? x.day * 1e6 + x.grades.length : -1);
     state = (progress(backup) > progress(saved) ? backup : saved) || freshState(ankiDay());
-    if (state.day !== ankiDay()) {
-      // A new Anki day: keep grades that still need uploading, start fresh otherwise.
-      const pending = state.grades.slice(state.uploaded);
-      saveDay(state); // its totals stay in "Past days"
-      state = { ...freshState(ankiDay()), carried: pending };
-    }
+    newDayState();
+  }
+  function newDayState() {
+    if (!state || state.day === ankiDay()) return;
+    // A new Anki day: keep grades that still need uploading, start fresh otherwise.
+    const pending = state.grades.slice(state.uploaded);
+    saveDay(state); // its totals stay in "Past days"
+    state = { ...freshState(ankiDay()), carried: [...(state.carried || []), ...pending] };
+    saveState();
+  }
+
+  // A list also carries the next Anki day's cards (list.next), worked out by Anki's own scheduler
+  // when the list was sent. Once Anki's day changes, that is today's list, so the computer can be
+  // off in the morning. A card the list already has carries only what changes ("same").
+  function rollList(raw) {
+    const n = raw && raw.next;
+    if (!n || now() / 1000 < raw.next_day_at) return raw;
+    const byId = new Map(raw.cards.map((c) => [c.cid, c]));
+    const cards = n.cards.map((c) => (c.same ? byId.has(c.cid) && { ...byId.get(c.cid), ...c } : c)).filter(Boolean);
+    // made_at stays the list's: car answers are checked against reviews done elsewhere since then.
+    return { ...raw, anki_today: n.anki_today, next_day_at: n.next_day_at, review_limits: n.review_limits,
+      learn_ahead_secs: n.learn_ahead_secs, cards, held_back: [], next: null, rolled: true };
+  }
+  // Called when the app opens, comes back on screen, or starts a session: past the rollover, use
+  // the next day's list and start the new day's progress.
+  function refreshList() {
+    if (!rawList) return;
+    const fresh = rollList(rawList);
+    if (list && fresh.anki_today === list.anki_today && fresh.rolled === list.rolled) return;
+    list = fresh;
+    fallback = { key: null, ids: new Set() };
+    newDayState();
   }
   function saveState() {
     try { localStorage.setItem('state', JSON.stringify(state)); } catch { /* IndexedDB still has it */ }
@@ -174,9 +201,9 @@
   function cardReady(c) { return audioReady.has(c.q_audio) && audioReady.has(c.a_audio); }
   // Every card carries the first Anki day it can be played (learning cards due today, interday
   // learning on their day, buried cards from tomorrow, reviews on their due day).
-  // Only a list Anki made on the current Anki day is played: its "today" part is Anki's own
-  // study queue for the day (buried siblings, limits and order all Anki's). Cards for later days
-  // are sent ahead only so their audio downloads early; the morning list decides what's played.
+  // Only a list for the current Anki day is played: its "today" part is Anki's own study queue for
+  // the day (buried siblings, limits and order all Anki's), whether sent that day or carried as
+  // the next day's list. Cards for later days are sent ahead only so their audio downloads early.
   const listIsToday = () => !!list && list.anki_today === ankiDay();
   // Fallback when today's list never arrived (the laptop was asleep or unplugged): from the
   // previous day's list, play only reviews due today. Anki shows every due review up to the
@@ -389,9 +416,11 @@
         message('Waiting for your first car list. On your computer, close Anki (or use Tools ▸ Car Review ▸ Send to Car). '
           + 'The first time, your computer also makes the audio, which can take a while; cards appear here as they are ready.');
       } else if (got.data) {
-        list = JSON.parse(dec.decode(await unzip(got.data)));
+        rawList = JSON.parse(dec.decode(await unzip(got.data)));
+        list = rollList(rawList);
+        fallback = { key: null, ids: new Set() };
         synced.stamp = got.stamp;
-        await DB.set('kv', 'list', list);
+        await DB.set('kv', 'list', rawList);
         log(`new list: ${list.cards.length} cards${list.pending ? `, ${list.pending} more still being prepared` : ''}`);
       }
       if (list) {
@@ -583,8 +612,8 @@
     renderSync();
     $('h-storage').textContent = audioReady.size ? `${Math.round(audioBytes() / 1e6)} MB (${audioReady.size} clips)` : 'none';
     if (list && !listIsToday()) {
-      message("Today's list isn't here yet. Your laptop makes it at 4:30 am if it's on and plugged in, "
-        + 'or when you open or close Anki. '
+      message("Today's list isn't here yet: sync or close Anki on your computer, then tap Sync here. "
+        + '(Each list also carries the next day\'s cards, so normally the phone has them by itself.) '
         + (listIsYesterday() && due.length
           ? `Meanwhile you can play the ${due.length} reviews due today from last night's list; new and learning cards wait for today's list.`
           : 'Cards sent ahead are already downloaded.'));
@@ -1042,6 +1071,7 @@
   const pressed = (kind, fn) => () => { if (session) session[kind] += 1; fn(); };
 
   async function startDrive() {
+    refreshList(); // the app may have stayed open past Anki's rollover
     driving = true;
     driveStartedAt = now();
     session = { start: driveStartedAt, end: driveStartedAt, buttons: 0, screen: 0, keys: 0 };
@@ -1219,7 +1249,8 @@
     // Ask the browser to keep our cards and audio even when storage gets tight.
     navigator.storage?.persist?.().catch(() => {});
     keys = await makeKeys(code);
-    list = (await DB.get('kv', 'list')) || null;
+    rawList = (await DB.get('kv', 'list')) || null;
+    list = rollList(rawList);
     audioReady = new Set(await DB.keys('audio'));
     clipMeta = (await DB.get('kv', 'clipMeta')) || {};
     synced = { ...synced, ...((await DB.get('kv', 'sync')) || {}) };
@@ -1281,13 +1312,13 @@
   $('unpair').addEventListener('click', async () => {
     if (!confirm('Unpair this phone? Its downloaded cards and audio are deleted. You can pair again by scanning the QR code in Anki.')) return;
     await DB.clear('audio'); await DB.clear('kv');
-    keys = null; list = null; state = null; audioReady = new Set(); clipMeta = {};
+    keys = null; rawList = null; list = null; state = null; audioReady = new Set(); clipMeta = {};
     synced = { at: 0, day: -1, stamp: null, cleared: false };
     show('unpaired');
   });
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
-    if (!driving) { syncIfNeeded('opened'); return; }
+    if (!driving) { refreshList(); showHome(); syncIfNeeded('opened'); return; }
     if (player.paused) player.play().catch(playFailed);
     keepScreenOn(true);
   });

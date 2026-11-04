@@ -18,8 +18,8 @@
 ## A normal day
 | When | You do | What happens by itself |
 |---|---|---|
-| Leaving | Close Anki | Anki syncs, then Car Review sends the cards due today (and the next few days) to the mailbox |
-| Early morning | Nothing | Half an hour after Anki's day starts (4:30 am by default), Car Review sends that day's exact list, without Anki open. You can turn this off in Settings (see below) |
+| Evening | Close (or sync) Anki after your last review | Car Review sends the cards due today, the next day's exact list (worked out by Anki's own scheduler on a temporary copy of your collection), and the audio for the next few days |
+| Early morning | Nothing | When Anki's day starts, the phone switches to the next day's list by itself. Your computer can be off |
 | Before driving | Open Car Review on the phone | On a new Anki day it syncs by itself: the new list, and audio only for cards it doesn't have yet. The **Sync** button turns green (✓ Synced) when there's nothing left to do |
 | Driving | Tap Start, then use the steering-wheel buttons | Each answer is saved on the phone right away. Nothing is uploaded during the drive |
 | Parked | Tap Stop | The answers upload (or as soon as there's signal, or when you next open the app) |
@@ -31,11 +31,11 @@
 
 **What runs on your computer when Anki is closed.** Car Review never runs in secret; each of these shows in Settings and can be turned off:
 - **Making audio and sending**: after you close Anki, with a small progress window you can pause or stop.
-- **The morning list** (Settings ▸ "Have each day's list on my phone by morning"): a task called "Car Review morning list" in Windows Task Scheduler runs at 4:30 am and sends the new day's list. Many laptops can't wake up for scheduled tasks, so when you close Anki while plugged in, Car Review also keeps the laptop from sleeping until 4:35 am (the screen still turns off). Unplugging cancels it. Turning the setting off removes the task.
+- **Nothing else.** Earlier versions added a 4:30 am task ("Car Review morning list") and kept a plugged-in laptop awake for it; this version removes that task the first time it sends.
 
 **Your stats.** The phone's home screen shows today: cards, minutes and the share of reviews you got right (per deck), each session (in the car or on screen), and the past week's days. These stay on the phone. In Anki, **Tools ▸ Car Review ▸ Car stats** shows up to 10 recent drives, car vs Anki retention per deck over the last 7 and 30 days (mature and young separately), and where the drive's time went: listening, your thinking and the phone's own delay. The phone measures those times for each clip (times only, no card text) and sends them along with your answers.
 
-**The one rule:** after a drive, open Anki on the computer before reviewing on AnkiMobile or AnkiDroid. If you forget, nothing breaks: any card you've already reviewed elsewhere is skipped when the car answers are applied, so nothing is ever counted twice.
+**The two rules:** sync or close Anki on the computer after your last review of the day, so the next day's list includes it. And after a drive, open Anki on the computer before reviewing on AnkiMobile or AnkiDroid. If you forget, nothing breaks: any card you've already reviewed elsewhere is skipped when the car answers are applied, so nothing is ever counted twice.
 
 Data use is under 1 MB a day once a card's audio is on the phone: about 60 KB per new card, and nothing for cards the phone already has.
 

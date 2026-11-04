@@ -102,11 +102,12 @@ def start_send(pack: dict, voice: bool) -> None:
         _last_sent_mod = mw.col.mod if mw.col else None
     except Exception:
         _last_sent_mod = None
-    remember_for_morning()
+    remember_settings()
 
 
-def remember_for_morning() -> None:
-    """Save what the 4:30 am job needs (it runs without Anki), and set the job up the first time."""
+def remember_settings() -> None:
+    """Save what the helper needs to make the next day's list from a copy of the collection, and
+    remove the 4:30 am task that earlier versions added."""
     from . import morning
 
     try:
@@ -118,18 +119,12 @@ def remember_for_morning() -> None:
             auto_voice=bool(setting("auto_voice")),
             rollover=int(mw.col.get_config("rollover", 4)),
         )
-        wanted = (mw.addonManager.getConfig(__name__) or {}).get("morning_job", True)
         marker = HOME / "morning-task.json"
-        current = marker.exists() and json.loads(marker.read_text()).get("version") == morning.TASK_VERSION
-        if wanted and not current:
-            result = run_helper("schedule")
-            if result.returncode == 0:
-                marker.write_text(json.dumps({"scheduled": result.stdout.strip(), "version": morning.TASK_VERSION}))
-        elif not wanted and marker.exists():
+        if marker.exists():
             run_helper("unschedule")
             marker.unlink()
     except Exception as err:  # never let this get in the way of sending
-        print(f"Car Review: couldn't set up the morning list: {err}")
+        print(f"Car Review: couldn't save the settings for the next day's list: {err}")
 
 
 def build(col) -> dict:
@@ -204,9 +199,6 @@ def on_close() -> None:
             return
         pack = build(mw.col)
         start_send(pack, voice=bool(setting("auto_voice")) and on_charger())
-        # On the charger at night: stay awake for the morning list (it decides, and gives up if unplugged).
-        if (mw.addonManager.getConfig(__name__) or {}).get("morning_job", True):
-            start_helper("overnight")
     except Exception as err:  # closing Anki must never fail because of Car Review
         print(f"Car Review: couldn't send on close: {err}")
 
@@ -492,13 +484,8 @@ def show_status() -> None:
     if s.get("unvoiced"):
         lines.append(f"Cards still without audio: {s['unvoiced']} (Tools ▸ Car Review ▸ Prepare audio)")
     lines.append(f"New audio made: {s.get('made', 0)} clips in {mins} min")
-    if setting("morning_job"):
-        from .morning import task_time
-
-        lines.append(f"Morning list: on. It's sent at {task_time()} even with Anki closed, and closing Anki "
-                     "while plugged in keeps the laptop awake until then (Settings to turn off).")
-    else:
-        lines.append("Morning list: off. The phone gets a new list when you close Anki.")
+    lines.append("Every list also holds the next day's cards, made by Anki's scheduler, and the phone "
+                 "switches to them when Anki's day changes. Sync or close Anki after your last review of the day.")
     showInfo("\n".join(lines))
 
 
