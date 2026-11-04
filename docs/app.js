@@ -11,7 +11,7 @@
   // A local test relay can be set on a localhost page only (tools: wrangler dev).
   const RELAY = (location.hostname === 'localhost' && localStorage.getItem('relayUrl'))
     || 'https://car-review-relay.ankicardreview.workers.dev/v1';
-  const APP_VERSION = 16; // also in index.html (app.js?v=); sent with grades so problems can be traced
+  const APP_VERSION = 17; // also in index.html (app.js?v=); sent with grades so problems can be traced
   const AUDIO_CAP = 400e6;     // bytes of audio kept on the phone; the oldest-used clips go first
   const AUDIO_KEEP_DAYS = 60;  // clips no list has used for this long are removed
   const $ = (id) => document.getElementById(id);
@@ -313,6 +313,10 @@
     remember(card);
     const t = now();
     const own = state.learning[card.cid];
+    // For the stats: what the card was at its first answer today (the list changes afterwards,
+    // so it can't be looked up later). Kept on the phone only.
+    state.first = state.first || {};
+    if (!state.first[card.cid]) state.first[card.cid] = { review: card.kind === 'review' && !own, deck: card.deck.split('::')[0] };
     let delay = null; // seconds until it comes back, or null when done for today
     if (own) {
       if (rating === 1) { own.idx = 0; delay = own.steps[0] ?? null; }
@@ -649,7 +653,7 @@
   }
   function dayStats(s = state) {
     const sessions = todaysSessions(s);
-    const byId = new Map(list ? list.cards.map((c) => [c.cid, c]) : []);
+    const firstSeen = s.first || {};
     const seen = new Set();
     const decks = new Map(); // deck -> [right, reviews], first answer of the day only
     let answers = 0, again = 0, right = 0, reviews = 0, ms = 0;
@@ -660,9 +664,11 @@
         if (g.rating === 1) again += 1;
         const first = !seen.has(g.cid);
         seen.add(g.cid);
-        const c = byId.get(g.cid);
-        if (!first || !c || c.kind !== 'review') continue;
-        const deck = c.deck.split('::')[0];
+        // Reviews right: first answer of the day on a card that was a review then (answers from
+        // before app 17 didn't record that, and are left out rather than guessed).
+        const info = firstSeen[g.cid];
+        if (!first || !info || !info.review) continue;
+        const deck = info.deck;
         const d = decks.get(deck) || [0, 0];
         d[0] += g.rating > 1 ? 1 : 0;
         d[1] += 1;
@@ -678,7 +684,7 @@
     if (!s) return;
     const d = dayStats(s);
     if (!d.answers) { delete pastDays[s.day]; } else {
-      pastDays[s.day] = { at: d.sessions[0].start, cards: d.cards, answers: d.answers, mins: d.mins, right: d.right, reviews: d.reviews };
+      pastDays[s.day] = { at: d.sessions[0].start, cards: d.cards, answers: d.answers, mins: d.mins, right: d.right, reviews: d.reviews, v: 2 };
     }
     for (const day of Object.keys(pastDays).map(Number).sort((a, b) => b - a).slice(DAYS_KEPT)) delete pastDays[day];
     try { localStorage.setItem('days', JSON.stringify(pastDays)); } catch { /* only a summary */ }
@@ -708,7 +714,9 @@
       .filter(([day]) => !state || day < state.day).sort((a, b) => b[0] - a[0]).slice(0, 7);
     $('t-days').innerHTML = older.map(([, v]) => {
       const date = new Date(v.at).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
-      return `<div class="session"><span>${esc(date)}</span><b>${v.cards} cards · ${v.mins} min · ${pct(v.right, v.reviews)} right</b></div>`;
+      // Days saved before app 17 counted "right" wrongly: show their cards and minutes only.
+      const right = v.v >= 2 && v.reviews ? ` · ${pct(v.right, v.reviews)} right` : '';
+      return `<div class="session"><span>${esc(date)}</span><b>${v.cards} cards · ${v.mins} min${right}</b></div>`;
     }).join('');
     $('t-days-head').classList.toggle('hidden', !older.length);
   }
