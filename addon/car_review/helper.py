@@ -433,6 +433,16 @@ def send(pack_path: Path, progress: Progress) -> None:
     """Upload the car list. Voices missing cards first if the pack asks for it (and only while
     plugged in); otherwise sends just the cards that already have audio. If a newer pack is
     saved while this runs, it switches to the newer one."""
+    if not PAIRING.exists():
+        # No phone paired with this computer (yet): there's nobody to send to, so only make the
+        # audio if asked (it's kept for when a phone is paired), instead of filling a new mailbox.
+        if json.loads(pack_path.read_text(encoding="utf-8")).get("voice_missing"):
+            prepare(pack_path, progress)
+        else:
+            progress.auto_close = True
+            progress.finish("No phone is paired with this computer, so nothing was sent "
+                            "(Tools ▸ Car Review ▸ Pair phone).")
+        return
     if not take_lock():
         progress.finish("Another Car Review send is already running; it will pick up this newer list.")
         return
