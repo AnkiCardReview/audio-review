@@ -11,7 +11,7 @@
   // A local test relay can be set on a localhost page only (tools: wrangler dev).
   const RELAY = (location.hostname === 'localhost' && localStorage.getItem('relayUrl'))
     || 'https://car-review-relay.ankicardreview.workers.dev/v1';
-  const APP_VERSION = 22; // also in index.html (app.js?v=); sent with grades so problems can be traced
+  const APP_VERSION = 23; // also in index.html (app.js?v=); sent with grades so problems can be traced
   // Audio kept on the phone (Storage ▸ Keep up to; 0 = no limit): the oldest-used clips go first.
   const audioCap = () => { const mb = Number(localStorage.getItem('audioLimit') || 1000); return mb > 0 ? mb * 1e6 : Infinity; };
   const BIG_DOWNLOAD = 50e6;   // ask first before downloading more audio than this at once
@@ -1431,6 +1431,8 @@
 
   // ---------- Startup ----------
   async function init() {
+    $('app-version').textContent = String(APP_VERSION);
+    checkForUpdate(); // before anything else, so even an unpaired phone gets a new version
     const speedSaved = localStorage.getItem('speed');
     if (speedSaved) $('speed').value = speedSaved;
     $('speed-val').textContent = Number($('speed').value).toFixed(1);
@@ -1540,9 +1542,28 @@
     synced = { at: 0, day: -1, stamp: null, cleared: false };
     show('unpaired');
   });
+  // A new version of the app: GitHub Pages lets a phone keep the page for 10 minutes, and a Home
+  // Screen app can hold on to it longer. On opening (never during a session), ask for the page
+  // past any cache and, if it names a newer app.js, load it. One small request to GitHub, at most
+  // every 10 minutes; nothing to do with the relay.
+  let updateCheckedAt = 0;
+  async function checkForUpdate() {
+    if (driving || !navigator.onLine || Date.now() - updateCheckedAt < 600000) return;
+    updateCheckedAt = Date.now();
+    try {
+      const page = await (await fetch(location.pathname, { cache: 'no-cache' })).text();
+      const latest = Number((page.match(/app\.js\?v=(\d+)/) || [])[1]);
+      if (!(latest > APP_VERSION)) return;
+      if (sessionStorage.getItem('updatedTo') === String(latest)) return; // tried once: don't loop
+      sessionStorage.setItem('updatedTo', String(latest));
+      log(`app version ${latest} is out: loading it`);
+      location.reload();
+    } catch { /* offline or GitHub unreachable: try next time */ }
+  }
+
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
-    if (!driving) { refreshList(); showHome(); syncIfNeeded('opened'); return; }
+    if (!driving) { checkForUpdate(); refreshList(); showHome(); syncIfNeeded('opened'); return; }
     if (player.paused) player.play().catch(playFailed);
     keepScreenOn(true);
   });
