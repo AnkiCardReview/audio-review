@@ -11,7 +11,7 @@
   // A local test relay can be set on a localhost page only (tools: wrangler dev).
   const RELAY = (location.hostname === 'localhost' && localStorage.getItem('relayUrl'))
     || 'https://car-review-relay.ankicardreview.workers.dev/v1';
-  const APP_VERSION = 20; // also in index.html (app.js?v=); sent with grades so problems can be traced
+  const APP_VERSION = 21; // also in index.html (app.js?v=); sent with grades so problems can be traced
   // Audio kept on the phone (Storage ▸ Keep up to; 0 = no limit): the oldest-used clips go first.
   const audioCap = () => { const mb = Number(localStorage.getItem('audioLimit') || 1000); return mb > 0 ? mb * 1e6 : Infinity; };
   const BIG_DOWNLOAD = 50e6;   // ask first before downloading more audio than this at once
@@ -1106,7 +1106,7 @@
   let wakeLock = null;
   async function keepScreenOn(on) {
     try {
-      if (on && ($('keep-awake').checked || walking()) && navigator.wakeLock && !wakeLock) {
+      if (on && screenWanted() && navigator.wakeLock && !wakeLock) {
         wakeLock = await navigator.wakeLock.request('screen');
         wakeLock.addEventListener('release', () => { wakeLock = null; });
       } else if (!on && wakeLock) {
@@ -1152,6 +1152,7 @@
     goNext();
   }
   function stopDrive() {
+    unlockScreen(true);
     if (driving && playedThisDrive) log(timingSummary());
     driving = false;
     stage = 'idle';
@@ -1195,6 +1196,85 @@
     pressed('screen', e.clientX < rect.left + rect.width / 2 ? leftAction : forward)();
   });
 
+  // ---------- Pocket lock ----------
+  // Hold 🔒 for a moment: the screen goes black, a lock snaps shut, and touches do nothing, so
+  // the phone can go in a pocket. Remote keys, headphones and car buttons keep working, and the
+  // screen stays on (a remote's keys only reach the app on screen). Hold the lock to unlock.
+  let locked = false;
+  let lockTimers = [];
+  const screenWanted = () => $('keep-awake').checked || walking() || locked;
+  const later = (ms, fn) => lockTimers.push(setTimeout(fn, ms));
+  function clearLockTimers() { lockTimers.forEach(clearTimeout); lockTimers = []; }
+  function dimLockSoon() { $('lock').classList.remove('dim'); later(2500, () => locked && $('lock').classList.add('dim')); }
+  function lockScreen() {
+    if (locked || !driving) return;
+    locked = true;
+    clearLockTimers();
+    const el = $('lock');
+    el.classList.remove('hidden', 'closed', 'dim');
+    $('lock-hint').textContent = 'Hold the lock to unlock';
+    void el.offsetWidth; // start the fade from transparent
+    el.classList.add('shown');
+    later(380, () => el.classList.add('closed')); // the shackle snaps down
+    later(400, () => navigator.vibrate?.(30));
+    dimLockSoon();
+    keepScreenOn(true);
+    log('screen locked');
+  }
+  function unlockScreen(now = false) {
+    if (!locked) return;
+    locked = false;
+    clearLockTimers();
+    const el = $('lock');
+    $('lock-hold').classList.remove('holding');
+    el.classList.remove('dim', 'closed'); // the shackle springs open
+    const gone = () => { el.classList.remove('shown'); later(350, () => el.classList.add('hidden')); };
+    if (now) { el.classList.remove('shown'); el.classList.add('hidden'); } else later(380, gone);
+    if (driving && !screenWanted()) keepScreenOn(false);
+    log('screen unlocked');
+  }
+  const toggleLock = () => (locked ? unlockScreen() : lockScreen());
+  // Press and hold: fn runs after ms unless the finger lifts or slides off first. A quick tap
+  // calls tapped instead (a reminder to hold).
+  function onHold(el, ms, fn, tapped) {
+    let timer = null;
+    const cancel = () => {
+      if (timer === null) return false;
+      clearTimeout(timer);
+      timer = null;
+      el.classList.remove('holding');
+      return true;
+    };
+    el.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      cancel();
+      el.classList.add('holding');
+      timer = setTimeout(() => { timer = null; el.classList.remove('holding'); fn(); }, ms);
+    });
+    el.addEventListener('pointerup', () => { if (cancel() && tapped) tapped(); });
+    el.addEventListener('pointerleave', cancel);
+    el.addEventListener('pointercancel', cancel);
+    el.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+  onHold($('d-lock'), 800, lockScreen, () => {
+    $('d-lock').classList.add('nudge');
+    setTimeout(() => $('d-lock').classList.remove('nudge'), 1500);
+  });
+  onHold($('lock-hold'), 1200, () => unlockScreen());
+  // A touch anywhere else on the lock screen does nothing but show how to unlock.
+  for (const type of ['pointerdown', 'pointerup', 'click', 'touchstart', 'touchmove', 'contextmenu']) {
+    $('lock').addEventListener(type, (e) => {
+      if (e.target.closest('#lock-hold')) return;
+      if (e.cancelable) e.preventDefault();
+      e.stopPropagation();
+      if (type === 'pointerdown' && locked) {
+        $('lock-hint').textContent = 'Locked: hold the lock to unlock';
+        dimLockSoon();
+      }
+    }, { passive: false });
+  }
+  $('lock-hold').addEventListener('pointerdown', () => locked && dimLockSoon());
+
   // Keys from a Bluetooth remote, page turner, keyboard, or a controller in keyboard mode (like
   // the 8BitDo Zero 2). Each action can have several keys, changed under Remote keys on the home
   // screen. Phones only pass keys to the app on screen, so the screen has to stay on.
@@ -1203,9 +1283,10 @@
     ['again', 'Again (on a question: hear it again)'],
     ['back', 'Back a card'],
     ['repeat', 'Hear it again'],
+    ['lock', 'Lock or unlock the screen'],
   ];
-  const DEFAULT_KEYS = { forward: ['g', ' ', 'arrowright', 'pagedown', 'enter'], again: ['j', '1', 'arrowleft', 'pageup'], back: ['k', 'z', 'backspace'], repeat: ['h', 'r'] };
-  const KEY_DO = { forward, again: leftAction, back: backACard, repeat: repeatAction };
+  const DEFAULT_KEYS = { forward: ['g', ' ', 'arrowright', 'pagedown', 'enter'], again: ['j', '1', 'arrowleft', 'pageup'], back: ['k', 'z', 'backspace'], repeat: ['h', 'r'], lock: ['l'] };
+  const KEY_DO = { forward, again: leftAction, back: backACard, repeat: repeatAction, lock: toggleLock };
   let keyMap = (() => {
     try { return { ...DEFAULT_KEYS, ...JSON.parse(localStorage.getItem('keys') || '{}') }; } catch { return { ...DEFAULT_KEYS }; }
   })();
@@ -1366,7 +1447,7 @@
   $('d-stop').addEventListener('click', stopDrive);
   $('keep-awake').addEventListener('change', () => {
     localStorage.setItem('keepAwake', $('keep-awake').checked ? '1' : '0');
-    if (driving) keepScreenOn($('keep-awake').checked || walking());
+    if (driving) keepScreenOn(screenWanted());
   });
   $('walk-mode').addEventListener('change', () => localStorage.setItem('walkMode', $('walk-mode').checked ? '1' : '0'));
   // − and + in a session nudge the same speed setting (the clip just plays faster or slower).
@@ -1412,6 +1493,7 @@
   // Lets a desktop browser simulate the buttons and the clock while testing.
   window.carReviewTest = {
     forward, back, previousCard, next: () => goNext(), advance: (ms) => { clockOffset += ms; },
+    start: startDrive, stop: stopDrive, get locked() { return locked; },
     timingSummary, dayStats, get stage() { return stage; }, get current() { return current; }, get state() { return state; }, get list() { return list; },
   };
 

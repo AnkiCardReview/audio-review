@@ -115,6 +115,33 @@
   .zones span { color: var(--text); font-size: 17px; font-weight: 600; background: var(--panel2); border: 1px solid var(--border); border-radius: 999px; padding: 10px 18px; }
   .zones .z-hint { position: absolute; left: 0; right: 0; bottom: 16px; padding: 0; text-align: center; font-size: 13px; color: var(--muted); }
 
+  /* Pocket lock: hold 🔒 to black out the screen and ignore touches; hold the lock to unlock.
+     Remotes, headphones and car buttons keep working. */
+  .holdable, .lock { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: none; }
+  .d-top #d-lock { padding: 8px 12px; font-size: 17px; background-image: linear-gradient(var(--accent), var(--accent));
+    background-repeat: no-repeat; background-size: 0% 100%; transition: background-size .15s; }
+  .d-top #d-lock.holding { background-size: 100% 100%; transition: background-size .8s linear; }
+  .d-top #d-lock.nudge::after { content: " Hold"; font-size: 14px; }
+  .lock { position: fixed; inset: 0; z-index: 1000; background: #000; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; opacity: 0; transition: opacity .35s ease; }
+  .lock.shown { opacity: 1; }
+  .lock-hold { width: 168px; height: 168px; padding: 24px; border-radius: 50%; transition: opacity .6s, transform .25s; }
+  .lock svg { width: 100%; height: 100%; overflow: visible; }
+  .lock .ring-bg { fill: none; stroke: #1c1f26; stroke-width: 5; }
+  .lock .ring { fill: none; stroke: var(--accent); stroke-width: 5; stroke-linecap: round; stroke-dasharray: 340;
+    stroke-dashoffset: 340; transform: rotate(-90deg); transform-origin: 60px 60px; transition: stroke-dashoffset .2s; }
+  .lock-hold.holding .ring { stroke-dashoffset: 0; transition: stroke-dashoffset 1.2s linear; }
+  .lock .shackle { fill: none; stroke: var(--text); stroke-width: 7; stroke-linecap: round;
+    transform: translateY(-11px); transition: transform .35s cubic-bezier(.3, 1.6, .5, 1); }
+  .lock .body { fill: var(--text); }
+  .lock .hole { fill: #000; }
+  .lock.closed .shackle { transform: translateY(0); }
+  .lock.closed .ring { stroke: var(--good); }
+  .lock.dim .lock-hold:not(.holding) { opacity: .16; }
+  .lock-hold.holding { transform: scale(1.06); }
+  .lock-hint { color: var(--muted); font-size: 15px; margin-top: 18px; transition: opacity .6s; }
+  .lock.dim .lock-hint { opacity: 0; }
+
   /* Remote keys */
   .keyrow { padding: 8px 0; border-bottom: 1px solid var(--border); }
   .keyrow:last-child { border-bottom: none; }
@@ -260,7 +287,7 @@
 
   <!-- A session: in the car, or on screen -->
   <section id="drive" class="hidden">
-    <div class="d-top"><span id="d-deck">&nbsp;</span><button id="d-slower" aria-label="Slower">−</button><span id="d-speed" class="d-speed">1.2×</span><button id="d-faster" aria-label="Faster">+</button><button id="d-stop">Stop</button></div>
+    <div class="d-top"><span id="d-deck">&nbsp;</span><button id="d-slower" aria-label="Slower">−</button><span id="d-speed" class="d-speed">1.2×</span><button id="d-faster" aria-label="Faster">+</button><button id="d-lock" class="holdable" aria-label="Hold to lock the screen">🔒</button><button id="d-stop">Stop</button></div>
     <div class="bar"><i id="d-bar"></i></div>
     <div id="d-count">&nbsp;</div>
     <div class="d-main">
@@ -280,9 +307,21 @@
       <div><span id="z-right-label"></span></div>
       <div class="z-hint">Swipe right to go back a card</div>
     </div>
-    <p class="hint d-help">Car buttons or headphones: ⏭ answer, ⏭ again = Good, ⏮ = Again.<br>On a question: ⏮ repeats it, ⏮⏮ goes back a card, ⏮⏮⏮ skips it.<br>Press about once a second; most cars drop faster presses.</p>
+    <div id="lock" class="lock hidden" aria-label="Screen locked">
+      <div id="lock-hold" class="lock-hold">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="ring-bg" cx="60" cy="60" r="54"/>
+          <circle class="ring" cx="60" cy="60" r="54"/>
+          <path class="shackle" d="M45 58 V45 a15 15 0 0 1 30 0 V58"/>
+          <rect class="body" x="36" y="56" width="48" height="38" rx="9"/>
+          <circle class="hole" cx="60" cy="73" r="4.5"/>
+        </svg>
+      </div>
+      <p id="lock-hint" class="lock-hint">Hold the lock to unlock</p>
+    </div>
+    <p class="hint d-help">Hold 🔒 to lock the screen for your pocket: your remote and headphone buttons keep working.<br>Car buttons or headphones: ⏭ answer, ⏭ again = Good, ⏮ = Again.<br>On a question: ⏮ repeats it, ⏮⏮ goes back a card, ⏮⏮⏮ skips it.<br>Press about once a second; most cars drop faster presses.</p>
   </section>
 </main>
-<script src="app.js?v=20"></script>
+<script src="app.js?v=21"></script>
 </body>
 </html>
