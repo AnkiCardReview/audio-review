@@ -25,7 +25,7 @@ from aqt.qt import (QAbstractItemView, QCheckBox, QDialog, QFrame, QHBoxLayout, 
 from aqt.utils import askUser, openLink, showWarning, tooltip
 
 from . import voice_setup
-from .common import APP_URL, PAIRING, RELAY, load_pairing, pairing_link
+from .common import APP_URL, PAIRING, RELAY, forget_what_phone_has, load_pairing, pairing_link
 
 APP_URL_FOR_SCREENSHOTS = APP_URL  # the app's address without a pairing code
 
@@ -453,6 +453,7 @@ class SettingsDialog(QDialog):
         layout.addWidget(repair)
 
     def show_qr(self) -> None:
+        forget_what_phone_has()  # a phone may be (re)pairing, with no audio yet: the next send checks
         self.qr.setPixmap(qr_pixmap(pairing_link(load_pairing())))
 
     def repair_clicked(self) -> None:

@@ -46,6 +46,18 @@ def pairing_link(pairing: Pairing) -> str:
     return f"{APP_URL}#pair={pairing.code}"
 
 
+# What the last send assumed: its fingerprints, and the phone's last list of clips (helper.py).
+LIST_SENT = HOME / "list-sent.json"
+HAVE_CACHE = HOME / "have.json"
+
+
+def forget_what_phone_has() -> None:
+    """A phone (re)pairing starts with no audio: make the next send check and send what's missing,
+    instead of skipping because nothing changed on this computer."""
+    for path in (LIST_SENT, HAVE_CACHE):
+        path.unlink(missing_ok=True)
+
+
 # This computer's measured voicing speed, for time estimates (written as clips are made).
 VOICE_SPEED = HOME / "voice-speed.json"
 

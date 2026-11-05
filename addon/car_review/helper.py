@@ -30,7 +30,8 @@ from pathlib import Path
 
 import requests
 
-from .common import CACHE, HOME, INBOX, PACK, PAIRING, RELAY, STATUS, VOICE_SPEED, load_pairing, pairing_link
+from .common import (CACHE, HAVE_CACHE, HOME, INBOX, LIST_SENT, PACK, PAIRING, RELAY, STATUS, VOICE_SPEED,
+                     forget_what_phone_has, load_pairing, pairing_link)
 from .pairing import Pairing
 from .power import on_charger
 from .ui import Progress, Stopped, run_with_window
@@ -39,8 +40,6 @@ from .voice import Voice, available_engine
 BATCH = 25
 BUNDLE_BYTES = 1_800_000          # one relay file (the relay's limit is 1.9 MB)
 BUNDLES = HOME / "bundles.json"   # bundle name -> clip names, for bundles the phone hasn't fetched
-LIST_SENT = HOME / "list-sent.json"  # fingerprints of the last list sent, to skip sending it again
-HAVE_CACHE = HOME / "have.json"      # the phone's last "have" (its clips) and when it was uploaded
 MAILBOX_BUDGET = 80_000_000       # audio waiting for the phone, at most (the relay allows 100 MB)
 RESEND_AFTER = 36 * 3600          # the relay deletes files after 3 days: refresh an unchanged list before
 # Clips stay in the cache for good: they're small next to a deck's media, and a card that comes
@@ -744,10 +743,7 @@ def main() -> None:
     elif args.cmd == "status":
         print(STATUS.read_text() if STATUS.exists() else "{}")
     elif args.cmd == "link":
-        # Showing the QR code may mean a phone is (re)pairing, starting with no audio: forget what
-        # the last send assumed the phone had, so the next send checks and sends what's missing.
-        LIST_SENT.unlink(missing_ok=True)
-        HAVE_CACHE.unlink(missing_ok=True)
+        forget_what_phone_has()  # a phone may be (re)pairing, with no audio yet
         print(pairing_link(load_pairing()))
     elif args.cmd == "engine":
         print(available_engine() or "none")
