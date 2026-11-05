@@ -44,3 +44,16 @@ def load_pairing(create: bool = True) -> Pairing:
 def pairing_link(pairing: Pairing) -> str:
     # The secret goes after "#", which browsers never send to any server.
     return f"{APP_URL}#pair={pairing.code}"
+
+
+# This computer's measured voicing speed, for time estimates (written as clips are made).
+VOICE_SPEED = HOME / "voice-speed.json"
+
+
+def voice_speed() -> float | None:
+    """Average seconds per clip on this computer, or None before any audio has been made."""
+    try:
+        data = json.loads(VOICE_SPEED.read_text())
+        return data["secs"] / data["clips"] if data.get("clips", 0) >= 5 else None
+    except (OSError, ValueError, KeyError, ZeroDivisionError):
+        return None

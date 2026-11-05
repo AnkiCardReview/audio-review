@@ -31,7 +31,7 @@ APP_URL_FOR_SCREENSHOTS = APP_URL  # the app's address without a pairing code
 
 DEFAULTS = {
     "decks": [],          # decks for the car, played in this order
-    "days_ahead": 3,      # send today's cards plus this many days ahead
+    "days_ahead": 1,      # send today's cards plus this many days ahead
     "auto_apply": False,  # apply car grades on opening without asking (summary shown afterwards)
     "auto_voice": True,   # make missing audio automatically when Anki closes while plugged in
     "python": "",         # Car Review's Python, if not in the default place
@@ -314,13 +314,15 @@ class SettingsDialog(QDialog):
         days_row.addWidget(QLabel("Also send cards due in the next"))
         self.days = QSpinBox()
         self.days.setRange(0, 7)
-        self.days.setValue(int(self.config.get("days_ahead", 3)))
+        self.days.setValue(int(self.config.get("days_ahead", 1)))
         days_row.addWidget(self.days)
         days_row.addWidget(QLabel("days"))
         days_row.addStretch(1)
         layout.addLayout(days_row)
-        layout.addWidget(text("<small>So the phone still has cards if you don't open Anki for a day or two. "
-                              "Cards are only ever played on the day they're due.</small>"))
+        layout.addWidget(text("<small>Their audio goes to the phone ahead of time. 1 is enough when you open "
+                              "Anki most days (each list also carries the next day's exact cards); more "
+                              "covers days without Anki, at the cost of bigger downloads. Cards are only "
+                              "ever played on the day they're due.</small>"))
         layout.addSpacing(10)
         self.auto_voice = QCheckBox("Make new audio by itself when I close Anki while my computer is plugged in")
         self.auto_voice.setChecked(bool(self.config.get("auto_voice")))

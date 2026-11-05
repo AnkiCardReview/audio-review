@@ -11,9 +11,10 @@
   // A local test relay can be set on a localhost page only (tools: wrangler dev).
   const RELAY = (location.hostname === 'localhost' && localStorage.getItem('relayUrl'))
     || 'https://car-review-relay.ankicardreview.workers.dev/v1';
-  const APP_VERSION = 18; // also in index.html (app.js?v=); sent with grades so problems can be traced
-  const AUDIO_CAP = 400e6;     // bytes of audio kept on the phone; the oldest-used clips go first
-  const AUDIO_KEEP_DAYS = 60;  // clips no list has used for this long are removed
+  const APP_VERSION = 19; // also in index.html (app.js?v=); sent with grades so problems can be traced
+  // Audio kept on the phone (Storage ▸ Keep up to; 0 = no limit): the oldest-used clips go first.
+  const audioCap = () => { const mb = Number(localStorage.getItem('audioLimit') || 1000); return mb > 0 ? mb * 1e6 : Infinity; };
+  const BIG_DOWNLOAD = 50e6;   // ask first before downloading more audio than this at once
   const $ = (id) => document.getElementById(id);
   const enc = new TextEncoder();
   const dec = new TextDecoder();
@@ -108,11 +109,34 @@
     if (!r.ok) throw new Error(`relay said ${r.status}`);
     return { data: await decrypt(name, await r.arrayBuffer()), stamp: r.headers.get('X-Updated') };
   }
+  // Uploads and deletes go as plain POSTs with the write key as the body's first line, which a
+  // browser sends without a separate permission request ("preflight") first: half the requests.
+  // A relay too old for them answers 401 or 405, and then the PUT and DELETE forms are used.
+  let oldRelay = false;
+  const relayPost = (path, bytes) => fetch(`${RELAY}/${keys.box}${path}`, {
+    method: 'POST', body: new Blob([enc.encode(`${keys.write}\n`), bytes]), signal: timeout(),
+  });
   async function relayPut(name, bytes) {
+    const sealed = await encrypt(name, bytes);
+    if (!oldRelay) {
+      const r = await relayPost(`/${name}`, sealed);
+      if (r.ok) return;
+      if (r.status !== 401 && r.status !== 405) throw new Error(`relay said ${r.status}`);
+      oldRelay = true;
+    }
     const r = await fetch(`${RELAY}/${keys.box}/${name}`, {
-      method: 'PUT', headers: { 'X-Write-Key': keys.write }, body: await encrypt(name, bytes), signal: timeout(),
+      method: 'PUT', headers: { 'X-Write-Key': keys.write }, body: sealed, signal: timeout(),
     });
     if (!r.ok) throw new Error(`relay said ${r.status}`);
+  }
+  async function relayDeleteMany(names) {
+    for (let i = 0; i < names.length && !oldRelay; i += 200) {
+      const r = await relayPost('?delete', enc.encode(names.slice(i, i + 200).join('\n')));
+      if (r.ok) continue;
+      if (r.status !== 401 && r.status !== 405) throw new Error(`relay said ${r.status}`);
+      oldRelay = true;
+    }
+    if (oldRelay) for (const name of names) await relayDelete(name);
   }
   async function relayDelete(name) {
     const r = await fetch(`${RELAY}/${keys.box}/${name}`, { method: 'DELETE', headers: { 'X-Write-Key': keys.write }, signal: timeout() });
@@ -397,6 +421,7 @@
   let syncing = false;
   let offline = false;   // the last attempt couldn't reach the relay
   let syncNote = '';     // progress shown under the Sync button while it runs
+  let audioWaiting = 0;  // bytes of audio left in the mailbox after "Later" on the download question
   function saveSync() { return DB.set('kv', 'sync', synced).catch(() => {}); }
   // Why a sync is needed now ('' when it isn't). On a new Anki day, or with answers to send, the
   // app syncs by itself when it opens; otherwise only when you tap Sync.
@@ -406,6 +431,7 @@
     if (synced.cleared) return 'Audio cleared: download it again';
     if (synced.day !== ankiDay()) return 'New Anki day';
     if (list.pending) return `${list.pending} more cards are being prepared`;
+    if (audioWaiting) return `${Math.round(audioWaiting / 1e6)} MB of audio to download`;
     return '';
   }
   async function runSync(why) {
@@ -518,7 +544,17 @@
   async function fetchBundles() {
     const fetched = new Set((await DB.get('kv', 'fetched')) || []);
     const todo = list.bundles.filter((name) => !fetched.has(name));
+    audioWaiting = 0;
     if (!todo.length) return;
+    // A big download (a first setup, or many new cards): ask first. Phones don't let a web app
+    // see whether it's on Wi-Fi, so the user decides.
+    const bytes = todo.reduce((sum, name) => sum + ((list.bundle_bytes || {})[name] || 0), 0);
+    if (bytes > BIG_DOWNLOAD && !confirm(`About ${Math.round(bytes / 1e6)} MB of new audio to download. `
+      + 'On mobile data this counts toward your plan.\n\nDownload it now? (Cancel: later, for example on Wi-Fi.)')) {
+      audioWaiting = bytes;
+      log(`audio: ${Math.round(bytes / 1e6)} MB left for later`);
+      return;
+    }
     const bar = $('h-progress');
     bar.classList.remove('hidden');
     let done = 0;
@@ -548,8 +584,8 @@
     }
   }
   // Clips stay on the phone after their card is played, so a card that comes back doesn't need
-  // downloading again. Clips no list has used for AUDIO_KEEP_DAYS go, and the oldest-used go
-  // first when they pass AUDIO_CAP.
+  // downloading again. Over the storage limit, the clips used longest ago go first (never ones
+  // the current list needs).
   async function tidyAudio() {
     const day = ankiDay();
     const inList = listClips();
@@ -564,7 +600,7 @@
     const old = Object.entries(clipMeta).filter(([name]) => !inList.has(name)).sort((a, b) => a[1][1] - b[1][1]);
     let removed = 0;
     for (const [name, [size, last]] of old) {
-      if (total <= AUDIO_CAP && last >= day - AUDIO_KEEP_DAYS) break;
+      if (total <= audioCap()) break;
       await DB.del('audio', name);
       audioReady.delete(name);
       delete clipMeta[name];
@@ -585,7 +621,7 @@
   }
   async function clearFetched() {
     const fetched = (await DB.get('kv', 'fetched')) || [];
-    for (const name of fetched) await relayDelete(name);
+    await relayDeleteMany(fetched); // one request for all of them
     await DB.set('kv', 'fetched', []);
   }
   const audioBytes = () => Object.values(clipMeta).reduce((sum, [size]) => sum + size, 0);
@@ -608,13 +644,15 @@
     const ready = due.filter(cardReady).length;
     $('h-due').textContent = list ? String(due.length) : '–';
     $('h-ready').innerHTML = list ? (ready === due.length ? `<span class="ok">✓ ${ready}</span>` : `<span class="warn">${ready} of ${due.length}</span>`) : '–';
-    $('h-made').textContent = list ? new Date(list.made_at * 1000).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : '–';
+    // When the laptop last sent (the next day's part rides along); flagged when it doesn't cover today.
+    $('h-made').innerHTML = list ? esc(new Date(list.made_at * 1000).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' }))
+      + (listIsToday() ? '' : ' <span class="warn">⚠ old</span>') : '–';
     const total = state ? state.grades.length : 0;
     $('h-up').innerHTML = !state || !total ? '–' : state.uploaded >= total ? '<span class="ok">✓ all</span>' : `<span class="warn">${total - state.uploaded} waiting</span>`;
     $('start').disabled = !list || ready === 0;
     renderToday();
     renderSync();
-    $('h-storage').textContent = audioReady.size ? `${Math.round(audioBytes() / 1e6)} MB (${audioReady.size} clips)` : 'none';
+    renderStorage();
     if (list && !listIsToday()) {
       message("Today's list isn't here yet: sync or close Anki on your computer, then tap Sync here. "
         + '(Each list also carries the next day\'s cards, so normally the phone has them by itself.) '
@@ -1218,6 +1256,22 @@
     pressed('keys', KEY_DO[action])();
   });
 
+  // ---------- Storage ----------
+  async function renderStorage() {
+    const cap = audioCap();
+    $('h-storage').textContent = `${Math.round(audioBytes() / 1e6)} MB (${audioReady.size.toLocaleString()} clips)`
+      + (cap === Infinity ? '' : ` of ${cap >= 1e9 ? `${cap / 1e9} GB` : `${Math.round(cap / 1e6)} MB`}`);
+    const kept = await navigator.storage?.persisted?.().catch(() => null);
+    $('h-kept').innerHTML = kept === true ? '<span class="ok">Yes</span>'
+      : kept === false ? '<span class="warn">Not guaranteed</span>' : 'Unknown';
+    $('h-missing').textContent = localStorage.getItem('clipsMissing') || 'Never';
+  }
+  $('audio-limit').addEventListener('change', async () => {
+    localStorage.setItem('audioLimit', $('audio-limit').value);
+    if (list) await tidyAudio(); // a lower limit takes effect now
+    renderStorage();
+  });
+
   // ---------- Is the phone keeping the audio? ----------
   // Phones may delete a web app's stored data when space runs low. If clips go missing between
   // two openings (and Clear audio wasn't used), say so in the log.
@@ -1226,6 +1280,9 @@
     const before = Number(localStorage.getItem('clipCount') || 0);
     if (before && audioReady.size < before) {
       log(`audio: ${before - audioReady.size} of ${before} clips went missing since the app was last open (the phone removed them)`);
+      try {
+        localStorage.setItem('clipsMissing', `${new Date().toLocaleDateString([], { month: 'short', day: 'numeric' })}: ${before - audioReady.size} clips`);
+      } catch { /* only a note */ }
     }
     const kept = await navigator.storage?.persisted?.().catch(() => null);
     if (kept === false) log("audio: the phone may remove this app's audio when space runs low (storage isn't marked as kept)");
@@ -1237,6 +1294,8 @@
     const speedSaved = localStorage.getItem('speed');
     if (speedSaved) $('speed').value = speedSaved;
     $('speed-val').textContent = Number($('speed').value).toFixed(1);
+    $('d-speed').textContent = `${Number($('speed').value).toFixed(1)}×`;
+    $('audio-limit').value = localStorage.getItem('audioLimit') || '1000';
     $('show-text').checked = localStorage.getItem('showText') === '1';
     $('auto-answer').checked = localStorage.getItem('autoAnswer') === '1';
     $('answer-secs').value = localStorage.getItem('answerSecs') || '8';
@@ -1309,7 +1368,15 @@
     if (driving) keepScreenOn($('keep-awake').checked || walking());
   });
   $('walk-mode').addEventListener('change', () => localStorage.setItem('walkMode', $('walk-mode').checked ? '1' : '0'));
+  // − and + in a session nudge the same speed setting (the clip just plays faster or slower).
+  function nudgeSpeed(step) {
+    $('speed').value = String(Math.min(2, Math.max(0.8, Math.round((speed() + step) * 10) / 10)));
+    $('speed').dispatchEvent(new Event('input'));
+  }
+  $('d-slower').addEventListener('click', () => nudgeSpeed(-0.1));
+  $('d-faster').addEventListener('click', () => nudgeSpeed(0.1));
   $('speed').addEventListener('input', () => {
+    $('d-speed').textContent = `${Number($('speed').value).toFixed(1)}×`;
     $('speed-val').textContent = Number($('speed').value).toFixed(1);
     localStorage.setItem('speed', $('speed').value);
     if (!player.loop) player.playbackRate = speed();

@@ -1,6 +1,6 @@
 {
     "decks": [],
-    "days_ahead": 3,
+    "days_ahead": 1,
     "auto_apply": false,
     "auto_voice": true,
     "python": "",

@@ -43,7 +43,7 @@ The phone app talks only to the relay. It loads nothing from anywhere else. (The
 
 ## How long data is kept
 - On the relay: **at most 3 days**, then deleted automatically. Mailboxes with no files are forgotten after 30 days.
-- On your phone: the list until a newer one replaces it. Audio until no list has used it for 60 days, or the oldest-used first once it passes 400 MB. **More ▸ Clear audio from this phone** deletes it any time; **Unpair this phone** or deleting the app's website data removes everything.
+- On your phone: the list until a newer one replaces it. Audio until it passes the limit you choose under **Storage** (1 GB by default), oldest-used first. Your daily stats stay on the phone and are never uploaded. **Storage ▸ Clear audio from this phone** deletes it any time; **Unpair this phone** or deleting the app's website data removes everything.
 - On your computer: audio clips are kept so each card is only voiced once, until no list has used them for 180 days. Delete the `CarReview` folder in your home folder to remove everything.
 
 ## Your choices

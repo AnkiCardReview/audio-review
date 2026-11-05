@@ -11,6 +11,11 @@
 //   PUT    /v1/<box>/<name>           upload a file      (header X-Write-Key)
 //   DELETE /v1/<box>/<name>           delete a file      (header X-Write-Key)
 //   DELETE /v1/<box>                  delete the whole box (header X-Write-Key)
+//   POST   /v1/<box>/<name>           upload a file      (body: write key, a newline, the file)
+//   POST   /v1/<box>?delete           delete files       (body: write key, then one name per line)
+//
+// The POST forms are for the phone app: a browser sends them without a separate CORS
+// "preflight" request first (no custom header, no content type), which halves its requests.
 //
 // Files older than 3 days are deleted by the daily cron job.
 //
@@ -18,10 +23,13 @@
 // touches only the rows it needs: each box keeps a running total of its bytes (no summing on
 // upload), and prefix listings are index ranges rather than a scan of the whole box. A daily
 // cap on uploads per box keeps one runaway laptop from using up the allowance for everyone.
+// The box cap keeps one user (say, a phone that never fetches its audio) from filling the
+// database: the laptop holds back further audio until the phone has fetched what's waiting.
 
 const MAX_FILE_BYTES = 1_900_000; // D1 rows top out at 2 MB
-const MAX_BOX_BYTES = 400_000_000; // enough for a big first backfill within 3 days
-const MAX_DAY_WRITES = 3000; // uploads per box per UTC day; a normal day is a few dozen
+const MAX_BOX_BYTES = 100_000_000; // the laptop keeps what's waiting under 80 MB
+const MAX_DAY_WRITES = 600; // uploads and deletes per box per UTC day; a normal day is a few dozen
+const MAX_BATCH = 200; // names in one batch delete
 const KEEP_MS = 3 * 24 * 60 * 60 * 1000;
 const BOX = /^[0-9a-f]{64}$/;
 const NAME = /^[a-z0-9][a-z0-9/_.-]{0,127}$/;
@@ -84,15 +92,45 @@ async function route(request, env) {
     return new Response(new Uint8Array(file.data), { headers: { ...headers, "Content-Type": "application/octet-stream" } });
   }
 
-  // Everything below changes the box, so it needs the box's write key.
-  const owner = await checkWriteKey(request, env, box);
+  // Everything below changes the box, so it needs the box's write key: in the X-Write-Key header,
+  // or (POST) as the body's first line.
+  let key = request.headers.get("X-Write-Key") || "";
+  let body = null;
+  if (request.method === "POST") {
+    const raw = new Uint8Array(await request.arrayBuffer());
+    const nl = raw.subarray(0, 256).indexOf(10);
+    if (nl < 0) return json({ error: "missing write key" }, 401);
+    key = new TextDecoder().decode(raw.subarray(0, nl));
+    body = raw.subarray(nl + 1);
+  }
+  const owner = await checkWriteKey(key, env, box);
   if (owner instanceof Response) return owner;
+  const day = Math.floor(Date.now() / 86_400_000);
+  if (request.method !== "GET" && owner.day === day && owner.writes >= MAX_DAY_WRITES) {
+    return json({ error: "too many uploads today" }, 429);
+  }
 
-  if (request.method === "PUT" && name) {
-    const body = await request.arrayBuffer();
+  if (request.method === "POST" && !name && url.searchParams.has("delete")) {
+    const names = new TextDecoder().decode(body).split("\n").map((n) => n.trim()).filter(Boolean);
+    if (names.length > MAX_BATCH || names.some((n) => !NAME.test(n))) return json({ error: "bad file names" }, 400);
+    if (!names.length) return json({ ok: true, deleted: 0 });
+    const marks = names.map(() => "?").join(",");
+    const { results } = await env.DB.prepare(
+      `SELECT name, length(data) AS size FROM files WHERE box = ? AND name IN (${marks})`
+    ).bind(box, ...names).all();
+    const freed = results.reduce((sum, r) => sum + r.size, 0);
+    await env.DB.batch([
+      env.DB.prepare(`DELETE FROM files WHERE box = ? AND name IN (${marks})`).bind(box, ...names),
+      env.DB.prepare(
+        "UPDATE boxes SET bytes = max(0, bytes - ?), writes = CASE WHEN day = ? THEN writes + 1 ELSE 1 END, day = ? WHERE box = ?"
+      ).bind(freed, day, day, box),
+    ]);
+    return json({ ok: true, deleted: results.length });
+  }
+
+  if ((request.method === "PUT" || request.method === "POST") && name) {
+    if (!body) body = await request.arrayBuffer();
     if (body.byteLength > MAX_FILE_BYTES) return json({ error: "file too large" }, 413);
-    const day = Math.floor(Date.now() / 86_400_000);
-    if (owner.day === day && owner.writes >= MAX_DAY_WRITES) return json({ error: "too many uploads today" }, 429);
     const old = await oldSize(env, box, name);
     if (owner.bytes - old + body.byteLength > MAX_BOX_BYTES) return json({ error: "box is full" }, 413);
     const updated = Date.now();
@@ -112,7 +150,9 @@ async function route(request, env) {
     const old = await oldSize(env, box, name);
     await env.DB.batch([
       env.DB.prepare("DELETE FROM files WHERE box = ? AND name = ?").bind(box, name),
-      env.DB.prepare("UPDATE boxes SET bytes = max(0, bytes - ?) WHERE box = ?").bind(old, box),
+      env.DB.prepare(
+        "UPDATE boxes SET bytes = max(0, bytes - ?), writes = CASE WHEN day = ? THEN writes + 1 ELSE 1 END, day = ? WHERE box = ?"
+      ).bind(old, day, day, box),
     ]);
     return json({ ok: true });
   }
@@ -130,8 +170,7 @@ async function route(request, env) {
 
 // Returns the box's row ({ write_hash, bytes, day, writes }), or an error Response. The first
 // write to a new box claims it.
-async function checkWriteKey(request, env, box) {
-  const key = request.headers.get("X-Write-Key") || "";
+async function checkWriteKey(key, env, box) {
   if (key.length < 32) return json({ error: "missing write key" }, 401);
   const hash = await sha256Hex(key);
   const lookup = () => env.DB.prepare("SELECT write_hash, bytes, day, writes FROM boxes WHERE box = ?").bind(box).first();
@@ -161,7 +200,7 @@ function corsHeaders(origin, env) {
   if (!origin || !allowed.includes(origin)) return {};
   return {
     "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "GET, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, PUT, POST, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, X-Write-Key",
     "Access-Control-Expose-Headers": "X-Updated",
     "Access-Control-Max-Age": "86400",

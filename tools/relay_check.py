@@ -63,6 +63,26 @@ def main() -> None:
     r = requests.get(box, params={"prefix": "grades/"}, timeout=30)
     check("single file deleted", r.ok and [f["name"] for f in r.json()["files"]] == ["grades/g2"])
 
+    # The phone's forms: the key as the body's first line, no custom header (no CORS preflight).
+    key_line = p.write_key.encode() + b"\n"
+    r = requests.post(f"{box}/have", data=key_line + b"phone upload", timeout=30)
+    check(f"POST upload accepted ({r.status_code})", r.status_code == 200)
+    r = requests.get(f"{box}/have", timeout=30)
+    check("POST upload stored without the key line", r.ok and r.content == b"phone upload")
+    r = requests.post(f"{box}/have", data=Pairing.new().write_key.encode() + b"\nx", timeout=30)
+    check(f"POST with the wrong key refused ({r.status_code})", r.status_code == 403)
+    for name in ("audio/b1", "audio/b2", "audio/b3"):
+        requests.put(f"{box}/{name}", data=b"y" * 100, headers=auth, timeout=30)
+    r = requests.post(f"{box}?delete", data=key_line + b"audio/b1\naudio/b2\naudio/none", timeout=30)
+    left = [f["name"] for f in requests.get(box, params={"prefix": "audio/b"}, timeout=30).json()["files"]]
+    check(f"batch delete removed the named files only ({r.status_code}, {r.text[:40]})",
+          r.ok and r.json().get("deleted") == 2 and left == ["audio/b3"])
+    r = requests.post(f"{box}?delete", data=key_line + b"../list", timeout=30)
+    check(f"batch delete refuses bad names ({r.status_code})", r.status_code == 400)
+    r = requests.options(f"{box}/have", headers={"Origin": "https://ankicardreview.github.io",
+                                                 "Access-Control-Request-Method": "POST"}, timeout=30)
+    check("CORS allows POST", "POST" in r.headers.get("Access-Control-Allow-Methods", ""))
+
     r = requests.put(f"{box}/list", data=b"x", headers={"X-Write-Key": Pairing.new().write_key}, timeout=30)
     check(f"write with the wrong key refused ({r.status_code})", r.status_code == 403)
 

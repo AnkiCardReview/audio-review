@@ -18,16 +18,16 @@
 ## A normal day
 | When | You do | What happens by itself |
 |---|---|---|
-| Evening | Close (or sync) Anki after your last review | Car Review sends the cards due today, the next day's exact list (worked out by Anki's own scheduler on a temporary copy of your collection), and the audio for the next few days |
+| Evening | Close (or sync) Anki after your last review | Car Review sends the cards due today, the next day's exact list (worked out by Anki's own scheduler on a temporary copy of your collection), and audio for tomorrow's cards |
 | Early morning | Nothing | When Anki's day starts, the phone switches to the next day's list by itself. Your computer can be off |
 | Before driving | Open Car Review on the phone | On a new Anki day it syncs by itself: the new list, and audio only for cards it doesn't have yet. The **Sync** button turns green (✓ Synced) when there's nothing left to do |
 | Driving | Tap Start, then use the steering-wheel buttons | Each answer is saved on the phone right away. Nothing is uploaded during the drive |
 | Parked | Tap Stop | The answers upload (or as soon as there's signal, or when you next open the app) |
 | Arriving | Open Anki | It syncs, downloads your car answers, checks them, and (after you click Apply) records them through Anki's own scheduler |
 
-**Syncing works like Anki's.** Nothing checks in on a timer. The computer syncs with the mailbox when Anki syncs, opens or closes, and after you review on it. The phone syncs when you tap **Sync**, by itself when it opens on a new Anki day or with answers still to send, and after Stop. The Sync button's color says whether there's anything to do: green ✓ Synced (nothing; tapping again only says "Already up to date"), blue Sync now (with the reason underneath), amber (no signal; answers are kept and sent later).
+**Syncing works like Anki's.** Nothing checks in on a timer. The computer sends when Anki syncs, opens or closes, and on **Send to Car**, but only if the list actually changed: an unchanged send makes no requests at all. The phone shows when your computer last sent (**From laptop**), with ⚠ old when that list doesn't cover today; then sync or close Anki on your computer. The phone syncs when you tap **Sync**, by itself when it opens on a new Anki day or with answers still to send, and after Stop. The Sync button's color says whether there's anything to do: green ✓ Synced (nothing; tapping again only says "Already up to date"), blue Sync now (with the reason underneath), amber (no signal; answers are kept and sent later).
 
-**Why it uses so little data.** The phone keeps each card's audio after playing it, so a card that comes back later isn't downloaded again; it tells the computer which clips it has, and the computer sends only the missing ones, many clips to a file. The phone then deletes those files from the mailbox. The list itself is compressed and only downloaded when it changed.
+**Why it uses so little data.** Each card's audio is made once on your computer and kept there for good, and it crosses to the phone once: the phone keeps it after playing (up to the limit under **Storage**, 1 GB by default, about 16,000 cards), tells the computer which clips it has, and the computer sends only the missing ones, many clips to a file. The phone deletes those files from the mailbox as soon as it has them, and the mailbox holds at most about 80 MB for you at a time: on a first setup, the rest follows once the phone has fetched what's waiting. Downloads over 50 MB ask first, so you can wait for Wi-Fi. The list itself is compressed and only downloaded when it changed.
 
 **What runs on your computer when Anki is closed.** Car Review never runs in secret; each of these shows in Settings and can be turned off:
 - **Making audio and sending**: after you close Anki, with a small progress window you can pause or stop.
@@ -37,7 +37,7 @@
 
 **The two rules:** sync or close Anki on the computer after your last review of the day, so the next day's list includes it. And after a drive, open Anki on the computer before reviewing on AnkiMobile or AnkiDroid. If you forget, nothing breaks: any card you've already reviewed elsewhere is skipped when the car answers are applied, so nothing is ever counted twice.
 
-Data use is under 1 MB a day once a card's audio is on the phone: about 60 KB per new card, and nothing for cards the phone already has.
+Data use: about 62 KB per card the phone hasn't had before, and nothing for cards it already has. A first setup is about 60–125 MB (today's and tomorrow's cards); the first weeks, while cards come up in the car for the first time, about 5–30 MB a day; after that usually a few MB a day.
 
 ## Your privacy, simply
 

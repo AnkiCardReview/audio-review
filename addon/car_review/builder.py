@@ -110,6 +110,49 @@ def build_pack(col: Collection, deck_names: list[str], days_ahead: int = 1, now:
     }
 
 
+def whole_deck_cards(col: Collection, deck_names: list[str], include_suspended: bool = False) -> list[dict]:
+    """Every card in the decks that works as audio, for making audio ahead, in the order it'll be
+    needed: learning cards and reviews by due day, then cards not started yet (in Anki's new-card
+    order; they reach the car once they're reviews), then suspended cards if asked. Only each
+    card's text and audio names; its place in that order is "due_day", as `prepare` expects."""
+    today = col.sched.today
+    out = []
+    for name in deck_names:
+        did = col.decks.id_for_name(name)
+        if not did:
+            continue
+        ids = ",".join(str(d) for d in col.decks.deck_and_child_ids(did))
+        rows = col.db.all(f"select c.id, c.ord, c.queue, c.type, c.due, n.flds, n.mid, n.tags "
+                          f"from cards c join notes n on n.id = c.nid where c.did in ({ids})")
+        for cid, ord_, queue, ctype, due, flds, mid, tags in rows:
+            suspended = queue == -1
+            if suspended and not include_suspended:
+                continue
+            if "car-review::skip" in tags.lower().split():
+                continue
+            notetype = col.models.get(mid)
+            if not notetype or notetype["type"] != 1:  # cloze only, as in the car list
+                continue
+            fields = flds.split("\x1f")
+            spoken = to_speech(fields[0], ord_ + 1, dict(zip([f["name"] for f in notetype["flds"]], fields)))
+            if spoken.skip:
+                continue
+            if ctype == 0:  # not started yet
+                rank = 1_000_000 + due
+            elif ctype == 2:  # review: its due day (overdue ones today)
+                rank = max(due, today)
+            else:  # (re)learning
+                rank = today
+            if suspended:
+                rank += 2_000_000
+            question, answer = spoken.spoken_question(), spoken.answer_text()
+            out.append({"cid": cid, "suspended": suspended, "due_day": rank,
+                        "question": question, "q_audio": audio_fingerprint(question),
+                        "answer": answer, "a_audio": audio_fingerprint(answer)})
+    out.sort(key=lambda c: c["due_day"])
+    return out
+
+
 def _spoken_deck(name: str) -> str:
     """'Step 1::Past Blocks' is said as 'Past Blocks'."""
     return name.split("::")[-1].replace("_", " ").strip()

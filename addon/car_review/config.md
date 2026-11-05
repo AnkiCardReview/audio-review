@@ -2,7 +2,7 @@
 
 **decks**: the decks to send to the car, played one after another in this order. Subdecks are included.
 
-**days_ahead**: how many days past today the car list covers (default 3), so the phone has cards even if you don't open Anki for a few days. Cards are only played on the day they're due.
+**days_ahead**: how many days past today the car list covers (default 1). Each list also carries the next day's exact cards, so 1 is enough when you open Anki most days; more covers days without Anki, with bigger downloads. Cards are only played on the day they're due.
 
 **auto_apply**: car answers are picked up when Anki opens and after each sync. `false` (default) shows what they will do and waits for you to click Apply. `true` applies them straight away (with a backup first) and shows a summary afterwards.
 

@@ -27,13 +27,13 @@ from pathlib import Path
 from anki.collection import OpChanges
 from aqt import gui_hooks, mw
 from aqt.operations import CollectionOp, QueryOp
-from aqt.qt import QAction, QCheckBox, QDialog, QDialogButtonBox, QLabel, QMenu, QScrollArea, QTimer, QVBoxLayout
+from aqt.qt import QAction, QCheckBox, QDialog, QDialogButtonBox, QLabel, QMenu, QMessageBox, QScrollArea, QTimer, QVBoxLayout
 from aqt.utils import askUser, openLink, showInfo, showText, showWarning, tooltip
 
 from . import voice_setup
 from .apply import Plan, apply_plan, plan_grades
 from .builder import build_pack
-from .common import CACHE, HOME, INBOX, PACK, STATUS
+from .common import CACHE, HOME, INBOX, PACK, STATUS, voice_speed
 from .power import on_charger
 from .settings import DEFAULTS, HELP_URL, open_settings
 
@@ -189,6 +189,70 @@ def prepare_audio() -> None:
                 "Progress shows in its own window.", period=8000)
 
     QueryOp(parent=mw, op=build, success=done).with_progress("Building car list…").run_in_background()
+
+
+def missing_clips(cards: list[dict]) -> int:
+    """Clips these cards need that aren't made yet (shared clips counted once)."""
+    names = {c[k] for c in cards for k in ("q_audio", "a_audio")}
+    return sum(1 for n in names if not (CACHE / f"{n}.mp3").exists())
+
+
+def how_long(clips: int) -> str:
+    """'about 6 h 50 min on this computer', from its measured speed."""
+    secs = voice_speed()
+    if secs is None:
+        return ("this computer's speed isn't known yet (it's measured as audio is made; as a guide, "
+                "a slow laptop takes about 5 seconds a clip, a fast desktop under 1)")
+    total = clips * secs
+    if total < 3600:
+        return f"about {max(1, round(total / 60))} min on this computer"
+    return f"about {int(total // 3600)} h {round(total % 3600 / 60)} min on this computer"
+
+
+def prepare_whole_decks() -> None:
+    """Make audio for every card in the car decks, the ones needed soonest first (Tools ▸ Car
+    Review ▸ Make audio for whole decks). Only when asked: on a slow computer it takes hours."""
+    if need_setup():
+        return
+    from .builder import whole_deck_cards
+
+    def done(cards: list[dict]) -> None:
+        active = [c for c in cards if not c["suspended"]]
+        suspended = [c for c in cards if c["suspended"]]
+        todo = missing_clips(active)
+        extra = missing_clips(active + suspended) - todo
+        box = QMessageBox(mw)
+        box.setWindowTitle("Car Review: make audio for whole decks")
+        box.setText(
+            f"Your car decks have {len(active):,} cards that work as audio. "
+            + (f"<b>{todo:,} clips</b> still need audio: {how_long(todo)}." if todo else "All of them already have audio.")
+            + "<br><br>Cards are done in the order you'll need them: the next reviews first, then later ones, "
+            "then cards you haven't started yet. It runs in the background at low priority and only while "
+            "plugged in. You can pause or stop it, and it carries on where it stopped next time.")
+        include = None
+        if extra:
+            include = QCheckBox(f"Also suspended cards: {len(suspended):,} cards, {extra:,} clips ({how_long(extra)})")
+            box.setCheckBox(include)
+        start = box.addButton("Start", QMessageBox.ButtonRole.AcceptRole)
+        box.addButton(QMessageBox.StandardButton.Cancel)
+        box.exec()
+        if box.clickedButton() is not start:
+            return
+        chosen = active + (suspended if include and include.isChecked() else [])
+        if not missing_clips(chosen):
+            tooltip("Car Review: all those cards already have audio.")
+            return
+        if not on_charger() and not askUser("Your computer is on battery. Audio is only made while it's "
+                                            "plugged in, so it will wait until you plug in. Start anyway?"):
+            return
+        path = HOME / "outbox" / "whole-decks.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"cards": chosen}), encoding="utf-8")
+        start_helper("prepare", "--pack", str(path))
+        tooltip("Making audio for your whole decks. Progress shows in its own window.", period=8000)
+
+    QueryOp(parent=mw, op=lambda col: whole_deck_cards(col, setting("decks"), include_suspended=True),
+            success=done).with_progress("Counting cards…").run_in_background()
 
 
 def on_close() -> None:
@@ -517,6 +581,7 @@ def setup() -> None:
                       (None, None),
                       ("Send to Car", send_to_car),
                       (f"Prepare audio (next {days} days)", prepare_audio),
+                      ("Make audio for whole decks…", prepare_whole_decks),
                       ("Apply car grades…", apply_car_grades),
                       ("Pair phone…", pair_phone),
                       ("Status", show_status),

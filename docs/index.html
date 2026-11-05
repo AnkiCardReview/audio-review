@@ -84,6 +84,9 @@
   .d-top { display: flex; align-items: center; gap: 10px; }
   .d-top #d-deck { flex: 1; color: var(--muted); font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .d-top button { width: auto; margin: 0; padding: 8px 16px; font-size: 15px; }
+  .d-top #d-slower, .d-top #d-faster { padding: 8px 14px; font-size: 18px; line-height: 1; }
+  .d-speed { color: var(--muted); font-size: 14px; min-width: 2.6em; text-align: center; }
+  select { font: inherit; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 8px; }
   .bar { height: 6px; background: var(--panel2); border-radius: 3px; margin: 10px 0 6px; overflow: hidden; }
   .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.3s; }
   #d-count { color: var(--muted); font-size: 14px; text-align: center; }
@@ -189,7 +192,7 @@
       <div class="num-label">cards left today</div>
       <div class="chips">
         <span class="chip">Offline <b id="h-ready">–</b></span>
-        <span class="chip">List <b id="h-made">–</b></span>
+        <span class="chip">From laptop <b id="h-made">–</b></span>
         <span class="chip">Answers sent <b id="h-up">–</b></span>
       </div>
       <progress id="h-progress" class="hidden" max="100" value="0"></progress>
@@ -231,12 +234,24 @@
       <button id="keys-reset">Reset to the standard keys</button>
     </details>
     <details class="panel">
+      <summary>Storage</summary>
+      <div class="stat"><span>Audio on this phone</span><b id="h-storage">–</b></div>
+      <div class="stat"><span>Kept safe by the phone</span><b id="h-kept">–</b></div>
+      <div class="stat"><span>Audio last lost</span><b id="h-missing">–</b></div>
+      <label for="audio-limit">Keep up to</label>
+      <select id="audio-limit">
+        <option value="250">250 MB (about 4,000 cards)</option>
+        <option value="1000">1 GB (about 16,000 cards)</option>
+        <option value="2000">2 GB (about 32,000 cards)</option>
+        <option value="0">No limit</option>
+      </select>
+      <p class="hint">Audio stays on the phone after it plays, so cards that come back don't download again. Over the limit, the audio used longest ago goes first. "Kept safe" means the phone won't clear it when space runs low; if it ever does, your computer sends it again at its next sync. Downloads over 50 MB ask first, so you can wait for Wi-Fi.</p>
+      <button id="clear-audio">Clear audio from this phone</button>
+    </details>
+    <details class="panel">
       <summary>More</summary>
       <button id="show-intro">How the buttons work</button>
       <p class="links"><a href="https://github.com/AnkiCardReview/car-review/blob/main/help/troubleshooting.md">Help &amp; troubleshooting</a> · <a href="https://github.com/AnkiCardReview/car-review/blob/main/PRIVACY.md">Privacy</a> · <a href="https://github.com/AnkiCardReview/car-review/blob/main/TERMS.md">Terms</a></p>
-      <div class="stat"><span>Audio on this phone</span><b id="h-storage">–</b></div>
-      <p class="hint">Kept so cards that come back don't download again. Old clips are removed by themselves (over 400 MB, or unused for 60 days).</p>
-      <button id="clear-audio">Clear audio from this phone</button>
       <button id="clear-today">Reset today's progress on this phone</button>
       <button id="unpair">Unpair this phone</button>
       <div id="log"></div>
@@ -245,7 +260,7 @@
 
   <!-- A session: in the car, or on screen -->
   <section id="drive" class="hidden">
-    <div class="d-top"><span id="d-deck">&nbsp;</span><button id="d-stop">Stop</button></div>
+    <div class="d-top"><span id="d-deck">&nbsp;</span><button id="d-slower" aria-label="Slower">−</button><span id="d-speed" class="d-speed">1.2×</span><button id="d-faster" aria-label="Faster">+</button><button id="d-stop">Stop</button></div>
     <div class="bar"><i id="d-bar"></i></div>
     <div id="d-count">&nbsp;</div>
     <div class="d-main">
@@ -268,6 +283,6 @@
     <p class="hint d-help">Car buttons or headphones: ⏭ answer, ⏭ again = Good, ⏮ = Again.<br>On a question: ⏮ repeats it, ⏮⏮ goes back a card, ⏮⏮⏮ skips it.<br>Press about once a second; most cars drop faster presses.</p>
   </section>
 </main>
-<script src="app.js?v=18"></script>
+<script src="app.js?v=19"></script>
 </body>
 </html>
