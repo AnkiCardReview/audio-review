@@ -8,6 +8,8 @@
 
 **auto_voice**: `true` (default) makes missing audio automatically when Anki closes while the computer is plugged in. `false` only makes audio when you use Tools ▸ Car Review ▸ Prepare audio. Audio is never made on battery.
 
+**main_bar**: `true` (default) shows the Car Review bar under the deck list on Anki's main screen: when cards were last sent, what the phone has downloaded, and buttons for Send to Car, Make audio and send, Check phone and Settings. `false` hides it (everything is still in Tools ▸ Car Review).
+
 
 **python**: leave empty. Only set it if Car Review's voice helper runs from a Python other than the `CarReview/venv` folder that voice setup makes.
 

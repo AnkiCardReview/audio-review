@@ -5,6 +5,7 @@
     "voice_gpu": false,
     "auto_apply": false,
     "auto_voice": true,
+    "main_bar": true,
     "python": "",
     "setup_done": false
 }

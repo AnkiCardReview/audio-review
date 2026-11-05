@@ -30,7 +30,7 @@ from pathlib import Path
 
 import requests
 
-from .common import (CACHE, HAVE_CACHE, HOME, INBOX, LIST_SENT, PACK, PAIRING, RELAY, STATUS, VOICE_SPEED,
+from .common import (CACHE, HAVE_CACHE, HOME, INBOX, LIST_SENT, PACK, PAIRING, PHONE, RELAY, STATUS, VOICE_SPEED, note_phone, pid_alive,
                      forget_what_phone_has, load_pairing, pairing_link)
 from .pairing import Pairing
 from .power import on_charger
@@ -214,6 +214,7 @@ class Outbox:
         # One request for everything in the mailbox; "have" is downloaded only if the phone has
         # uploaded a new one since the last time.
         files = relay.files()
+        self.listing = files  # for note_phone once the send is done
         cached = read_file_json(HAVE_CACHE)
         have = files.get("have")
         if have and cached.get("updated") == have["updated"]:
@@ -234,6 +235,7 @@ class Outbox:
         self.sizes = {b: files[b]["size"] for b in self.bundles}
         # Audio already waiting for the phone (any bundle, known here or not) counts toward the budget.
         self.waiting = sum(f["size"] for n, f in files.items() if n.startswith("audio/"))
+        self.uploaded_bytes = 0
         self.full = False
         self.coming = {n for clips in self.bundles.values() for n in clips}
         self.pending: list[tuple[str, bytes]] = []
@@ -276,6 +278,7 @@ class Outbox:
         self.bundles[name] = [n for n, _ in self.pending]
         self.sizes[name] = stored  # as the mailbox lists it, so the phone list doesn't change
         self.waiting += stored
+        self.uploaded_bytes += stored
         self.coming |= self.pending_names
         self.uploads += 1
         if self.progress:
@@ -371,26 +374,6 @@ LOCK = HOME / "helper.lock"
 LAST_SENT = HOME / "last-sent.json"  # the Anki day of the last list that reached the phone
 
 
-def pid_alive(pid: int) -> bool:
-    if sys.platform == "win32":
-        k32 = ctypes.windll.kernel32
-        k32.OpenProcess.restype = ctypes.c_void_p
-        handle = k32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
-        if not handle:
-            return False
-        code = ctypes.c_ulong()
-        k32.GetExitCodeProcess(ctypes.c_void_p(handle), ctypes.byref(code))
-        k32.CloseHandle(ctypes.c_void_p(handle))
-        return code.value == 259  # STILL_ACTIVE
-    import os
-
-    try:
-        os.kill(pid, 0)
-        return True
-    except OSError:
-        return False
-
-
 def take_lock(lock: Path = LOCK) -> bool:
     """Only one send runs at a time. A later request just leaves a newer pack for it to pick up."""
     import os
@@ -466,6 +449,7 @@ def send(pack_path: Path, progress: Progress) -> None:
                 and time.time() - sent.get("list_at", 0) < RESEND_AFTER):
             # Nothing changed since the last send, and the phone got all of it: no requests at all.
             log("unchanged since the last send: nothing sent")
+            write_status(**dict(read_file_json(STATUS), state="done", unchanged=True))
             progress.auto_close = True
             progress.finish("Nothing changed since the last send, so there was nothing to send. Done ✓")
             return
@@ -613,6 +597,7 @@ def send(pack_path: Path, progress: Progress) -> None:
                                                  complete=not unvoiced and not outbox.full and not progress.stopped)))
             LAST_SENT.write_text(json.dumps({"anki_today": pack["anki_today"], "made_at": pack["made_at"],
                                              "sent": int(time.time())}))
+            note_phone(outbox.listing, outbox.uploads, outbox.uploaded_bytes)
             break
         state = "stopped" if progress.stopped else "done"
         write_status(state=state, ready=len(ready), total=len(pack["cards"]), made=made, unvoiced=unvoiced,
@@ -775,7 +760,9 @@ def main() -> None:
         INBOX.mkdir(parents=True, exist_ok=True)
         for old in INBOX.glob("*.json"):
             old.unlink()
-        names = sorted(relay.names("grades/"))
+        files = relay.files()  # the whole mailbox in the same one request, for Anki's main screen
+        note_phone(files)
+        names = sorted(n for n in files if n.startswith("grades/"))
         for name in names:
             data = relay.get(name)
             if data is not None:
@@ -786,6 +773,9 @@ def main() -> None:
         relay = Relay(load_pairing(create=False))
         for name in args.names:
             relay.session.delete(f"{relay.box}/{name}", timeout=60)
+        seen = read_file_json(PHONE)
+        if seen:
+            PHONE.write_text(json.dumps(dict(seen, grades=max(0, seen.get("grades", 0) - len(args.names)))))
     elif args.cmd == "morning":
         from . import morning
 

@@ -8,13 +8,15 @@ Automatic:
   grades are picked up the same way and a fresh list goes to the phone if your cards changed;
   after a review session on the laptop a fresh list goes out, so the phone never replays cards
   you've already done here.
-- When Anki closes: send the car list (today plus the next few days) to your phone. This is
-  quick: only cards that already have audio are sent. If "auto_voice" is on and the laptop is
-  plugged in, missing audio is made too, after Anki has closed. On the charger in the evening,
-  the helper also keeps the laptop awake until Anki's next day starts and sends that day's list.
+- When Anki closes: send the car list (today plus the next few days, and the next day's exact
+  cards) to your phone. This is quick: only cards that already have audio are sent. If
+  "auto_voice" is on and the laptop is plugged in, missing audio is made too, after Anki has closed.
 
-Tools ▸ Car Review menu: Settings, Send to Car, Prepare audio, Apply car grades, Pair phone,
-Status, Car stats, Help.
+Anki's main screen has a Car Review bar (main_bar.py): what was last sent and what the phone has
+picked up, with Send to Car, Make audio and send, Check phone and Settings buttons.
+
+Tools ▸ Car Review menu: Settings, Send to Car, Prepare audio, Make audio for whole decks,
+Apply car grades, Pair phone, Status, Car stats, Help.
 """
 
 from __future__ import annotations
@@ -30,7 +32,7 @@ from aqt.operations import CollectionOp, QueryOp
 from aqt.qt import QAction, QCheckBox, QDialog, QDialogButtonBox, QLabel, QMenu, QMessageBox, QScrollArea, QTimer, QVBoxLayout
 from aqt.utils import askUser, openLink, showInfo, showText, showWarning, tooltip
 
-from . import voice_setup
+from . import main_bar, voice_setup
 from .apply import Plan, apply_plan, plan_grades
 from .builder import build_pack
 from .common import CACHE, HOME, INBOX, PACK, STATUS, voice_speed
@@ -604,6 +606,8 @@ def setup() -> None:
     gui_hooks.sync_did_finish.append(on_sync_finished)
     gui_hooks.profile_will_close.append(on_close)
     gui_hooks.state_did_change.append(on_state_change)
+    main_bar.setup({"send": send_to_car, "prepare": prepare_audio, "check": apply_car_grades,
+                    "settings": open_settings_menu, "pair": pair_phone}, setting)
     # No timer: like Anki itself, Car Review syncs when Anki syncs, opens and closes, so a laptop
     # left open all day makes no requests in between.
 

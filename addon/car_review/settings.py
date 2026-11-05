@@ -37,6 +37,7 @@ DEFAULTS = {
     "voice_gpu": False,   # make audio on the graphics card (needs the NVIDIA engine, Settings ▸ Voice)
     "auto_apply": False,  # apply car grades on opening without asking (summary shown afterwards)
     "auto_voice": True,   # make missing audio automatically when Anki closes while plugged in
+    "main_bar": True,     # the Car Review bar under the deck list on Anki's main screen
     "python": "",         # Car Review's Python, if not in the default place
     "setup_done": False,  # the setup wizard has been shown once
 }
@@ -350,6 +351,12 @@ class SettingsDialog(QDialog):
         layout.addWidget(text("<small>Car answers are picked up when Anki opens and each time it syncs (the Sync button or Anki's own automatic sync). Off: Anki shows what your car answers will do and waits for you to click "
                               "Apply. On: they're applied straight away and a summary is shown. Either way Anki "
                               "makes a backup first, and Edit ▸ Undo reverts them in one step.</small>"))
+        layout.addSpacing(10)
+        self.main_bar = QCheckBox("Show Car Review on Anki's main screen")
+        self.main_bar.setChecked(bool(self.config.get("main_bar", True)))
+        layout.addWidget(self.main_bar)
+        layout.addWidget(text("<small>Under your decks: when cards were last sent, what your phone has "
+                              "downloaded, and Send to Car, Make audio and Check phone buttons.</small>"))
         layout.addStretch(1)
 
     # ----- 4. Voice -----
@@ -601,6 +608,7 @@ class SettingsDialog(QDialog):
             "days_ahead": self.days.value(),
             "auto_voice": self.auto_voice.isChecked(),
             "auto_apply": self.auto_apply.isChecked(),
+            "main_bar": self.main_bar.isChecked(),
             "voice_threads": self.threads.value(),
             "voice_gpu": self.gpu.isChecked(),
             "setup_done": True,
@@ -618,6 +626,12 @@ class SettingsDialog(QDialog):
                 anki_addon.remember_settings()  # the helper reads the voice settings from there
             except Exception as err:  # saving the settings themselves must not fail over this
                 print(f"Car Review: couldn't pass the settings to the helper yet: {err}")
+        try:
+            from . import main_bar
+
+            main_bar.redraw()  # show or hide the bar on the main screen
+        except Exception as err:
+            print(f"Car Review: couldn't redraw the main screen: {err}")
         if close:
             self.timer.stop()
             self.accept()

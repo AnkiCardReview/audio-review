@@ -9,8 +9,10 @@ pairing completely; your Anki collection is never stored there.
 
 from __future__ import annotations
 
+import ctypes
 import json
 import os
+import sys
 import time
 from pathlib import Path
 
@@ -49,12 +51,35 @@ def pairing_link(pairing: Pairing) -> str:
 # What the last send assumed: its fingerprints, and the phone's last list of clips (helper.py).
 LIST_SENT = HOME / "list-sent.json"
 HAVE_CACHE = HOME / "have.json"
+# What the mailbox looked like the last time this computer looked (a send or a check for car
+# answers), for the bar on Anki's main screen. Never fetched on its own: no extra requests.
+PHONE = HOME / "phone.json"
+
+
+def note_phone(files: dict, uploaded_files: int = 0, uploaded_bytes: int = 0) -> None:
+    """Record from one mailbox listing (name -> {size, updated}): audio the phone hasn't
+    downloaded yet, its car answers waiting here, and when it last reported its clips."""
+    try:
+        audio = [f for n, f in files.items() if n.startswith("audio/")]
+        grades = [f for n, f in files.items() if n.startswith("grades/")]
+        have = files.get("have") or {}
+        HOME.mkdir(parents=True, exist_ok=True)
+        PHONE.write_text(json.dumps({
+            "checked": int(time.time()),
+            "waiting": len(audio) + uploaded_files,
+            "waiting_bytes": sum(f.get("size", 0) for f in audio) + uploaded_bytes,
+            "grades": len(grades),
+            "grades_at": max((f.get("updated", 0) for f in grades), default=0) // 1000,
+            "have_at": (have.get("updated") or 0) // 1000,
+        }))
+    except (OSError, TypeError, ValueError):
+        pass
 
 
 def forget_what_phone_has() -> None:
     """A phone (re)pairing starts with no audio: make the next send check and send what's missing,
     instead of skipping because nothing changed on this computer."""
-    for path in (LIST_SENT, HAVE_CACHE):
+    for path in (LIST_SENT, HAVE_CACHE, PHONE):
         path.unlink(missing_ok=True)
 
 
@@ -79,3 +104,21 @@ def voice_speed() -> float | None:
         return data["secs"] / data["clips"] if data.get("clips", 0) >= 5 else None
     except (OSError, ValueError, KeyError, ZeroDivisionError):
         return None
+
+
+def pid_alive(pid: int) -> bool:
+    if sys.platform == "win32":
+        k32 = ctypes.windll.kernel32
+        k32.OpenProcess.restype = ctypes.c_void_p
+        handle = k32.OpenProcess(0x1000, False, pid)  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not handle:
+            return False
+        code = ctypes.c_ulong()
+        k32.GetExitCodeProcess(ctypes.c_void_p(handle), ctypes.byref(code))
+        k32.CloseHandle(ctypes.c_void_p(handle))
+        return code.value == 259  # STILL_ACTIVE
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
