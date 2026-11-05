@@ -34,6 +34,7 @@ DEFAULTS = {
     "decks": [],          # decks for the car, played in this order
     "days_ahead": 1,      # send today's cards plus this many days ahead
     "voice_threads": 3,   # processor threads for making audio (Settings ▸ Voice)
+    "voice_gpu": False,   # make audio on the graphics card (needs the NVIDIA engine, Settings ▸ Voice)
     "auto_apply": False,  # apply car grades on opening without asking (summary shown afterwards)
     "auto_voice": True,   # make missing audio automatically when Anki closes while plugged in
     "python": "",         # Car Review's Python, if not in the default place
@@ -59,7 +60,10 @@ class VoiceJob:
 job = VoiceJob()
 
 
-def start_voice_setup() -> None:
+def start_voice_setup(task=None) -> None:
+    """Run voice setup (or another voice_setup task, like installing the NVIDIA engine) in the
+    background; the Voice page shows its progress."""
+    task = task or voice_setup.install
     if job.running:
         return
     job.__init__()  # reset
@@ -71,7 +75,7 @@ def start_voice_setup() -> None:
 
     def work() -> None:
         try:
-            voice_setup.install(report, lambda: job.cancel)
+            task(report, lambda: job.cancel)
             job.finished = True
         except voice_setup.Cancelled:
             job.error = "Voice setup was stopped. Press the button again to carry on where it left off."
@@ -387,6 +391,27 @@ class SettingsDialog(QDialog):
             "<small>3 (the default) leaves the computer free while you study. More can be faster on a desktop "
             "while it's not doing much else; on many laptops it makes little difference. "
             "Tools ▸ Car Review ▸ Make audio for whole decks shows the speed this computer reaches.</small>"))
+        layout.addSpacing(10)
+        self.gpu_status = text("Graphics card: checking…")
+        layout.addWidget(self.gpu_status)
+        gpu_row = QHBoxLayout()
+        self.gpu = QCheckBox("Make audio on the graphics card")
+        self.gpu.setChecked(bool(self.config.get("voice_gpu")))
+        self.gpu.setEnabled(False)
+        gpu_row.addWidget(self.gpu)
+        self.gpu_button = QPushButton("Use my NVIDIA graphics card")
+        self.gpu_button.setVisible(False)
+        self.gpu_button.clicked.connect(self.gpu_clicked)
+        gpu_row.addWidget(self.gpu_button)
+        gpu_row.addStretch(1)
+        layout.addLayout(gpu_row)
+        layout.addWidget(text(
+            f"<small>NVIDIA cards: a one-time download of about {voice_setup.NVIDIA_DOWNLOAD_GB} GB (NVIDIA's own "
+            f"CUDA libraries, about {voice_setup.NVIDIA_DISK_GB} GB on disk) into the same CarReview folder, checked "
+            "like the rest. It needs a recent NVIDIA driver. If the card can't make audio, the processor is used "
+            "instead. AMD and Intel cards: not yet.</small>"))
+        self.cards: list[str] = []
+        self.gpu_ready = False
         layout.addStretch(1)
         self.engine: str | None = None
         self.engine_checked = False
@@ -400,6 +425,8 @@ class SettingsDialog(QDialog):
 
         def work() -> None:
             self.engine = voice_setup.installed_engine(python)
+            self.cards = voice_setup.graphics_cards()
+            self.gpu_ready = voice_setup.gpu_engine_installed(python)
             self.engine_checked = True
 
         threading.Thread(target=work, daemon=True).start()
@@ -428,7 +455,8 @@ class SettingsDialog(QDialog):
         self.voice_bar.setVisible(False)
         if job.finished:
             job.finished = False
-            self.engine, self.engine_checked = "onnx", True
+            self.engine_checked = False
+            self.check_engine()  # what's installed now (the voice, or the NVIDIA engine)
         if job.error:
             self.voice_status.setText(f"<span style='color:#c0392b'><b>{job.error}</b></span> "
                                       f"<a href='{TROUBLESHOOTING_URL}'>Troubleshooting</a>")
@@ -440,9 +468,43 @@ class SettingsDialog(QDialog):
             self.voice_status.setText("<span style='color:#27ae60'><b>✓ The voice is ready.</b></span>"
                                       + (" (PyTorch engine)" if self.engine == "torch" else ""))
             self.voice_button.setText("Reinstall the voice")
+            self.refresh_gpu()
         else:
             self.voice_status.setText("<b>Not set up yet.</b>")
             self.voice_button.setText("Set up the voice")
+
+    def refresh_gpu(self) -> None:
+        nvidia = any("nvidia" in c.lower() for c in self.cards)
+        last = voice_setup.last_device()
+        lines = [f"<b>Graphics card:</b> {', '.join(self.cards) or 'none found'}"]
+        if self.gpu_ready:
+            lines.append("NVIDIA engine installed ✓")
+        if last.get("device") == "graphics card":
+            lines.append("<span style='color:#27ae60'>audio is being made on it</span>")
+        elif self.gpu_ready and last.get("note"):
+            lines.append(f"<span style='color:#c0392b'>{last['note']}</span>")
+        self.gpu_status.setText(" · ".join(lines))
+        self.gpu.setEnabled(self.gpu_ready and self.engine == "onnx")
+        if not self.gpu_ready:
+            self.gpu.setChecked(False)
+        self.gpu_button.setVisible(nvidia and self.engine == "onnx" and not voice_setup.gpu_supported())
+        self.gpu_button.setText("Remove NVIDIA's engine" if self.gpu_ready else "Use my NVIDIA graphics card")
+
+    def gpu_clicked(self) -> None:
+        if job.running:
+            return
+        if self.gpu_ready:
+            if askUser("Remove NVIDIA's engine and go back to making audio on the processor? "
+                       "(Frees about 3 GB.)", parent=self):
+                self.gpu.setChecked(False)
+                start_voice_setup(voice_setup.remove_gpu)
+            return
+        if askUser(f"Download NVIDIA's engine (about {voice_setup.NVIDIA_DOWNLOAD_GB} GB, "
+                   f"{voice_setup.NVIDIA_DISK_GB} GB on disk) so audio is made on your graphics card? "
+                   "It's checked like the rest of the voice, and Car Review tests the card afterwards.",
+                   parent=self):
+            self.gpu.setChecked(True)
+            start_voice_setup(voice_setup.install_gpu)
 
     # ----- 5. Phone -----
     def page_phone(self, layout: QVBoxLayout) -> None:
@@ -540,6 +602,7 @@ class SettingsDialog(QDialog):
             "auto_voice": self.auto_voice.isChecked(),
             "auto_apply": self.auto_apply.isChecked(),
             "voice_threads": self.threads.value(),
+            "voice_gpu": self.gpu.isChecked(),
             "setup_done": True,
         })
         return cfg

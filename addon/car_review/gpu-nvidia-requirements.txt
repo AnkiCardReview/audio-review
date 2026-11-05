@@ -1,0 +1,57 @@
+# NVIDIA graphics-card voice engine (Settings ▸ Voice ▸ Use my NVIDIA graphics card): ONNX Runtime
+# with CUDA 13 and cuDNN 9 from NVIDIA's own packages, replacing the standard onnxruntime.
+# Its other needs (flatbuffers, numpy, packaging, protobuf) are already in voice-requirements.txt
+# at the same versions. Regenerate with: uv pip compile (onnxruntime-gpu[cuda,cudnn]==1.31.1)
+# --python-version 3.12 --python-platform x86_64-pc-windows-msvc --generate-hashes, keeping these.
+nvidia-cublas==13.10.0.20 \
+    --hash=sha256:05929d6a64af9edce1951ff82a514d630fc1a2369bcfe1ab195f5e85266dbfed \
+    --hash=sha256:c310b749eea855b88fafb906de08d6819b87216c6711640771764fea5dcd8546 \
+    --hash=sha256:c5f3418c0a845232a8cabc58f6fa52cfae7d8bd3680d94c3907aca710fd48d70 \
+    --hash=sha256:dcc6d63884c53d07e267ce7e6feac17b2538cebaafec5db865736c3e28e4dc84
+nvidia-cuda-nvrtc==13.5.37 \
+    --hash=sha256:36e4fa2a8ada293f5693d308e531c196ab6f91cf7a0ff479bf96a537d43a6096 \
+    --hash=sha256:86b4d68058807988b7d9af5b44917a0601e9c337f35ccd657bfb3c759ff8d8bc \
+    --hash=sha256:d47388d9054a9f16c705d86e59d7e6c57e85beece36d23d1657833531fa913aa \
+    --hash=sha256:e8e6c10b251385707ae3abd7b4ee118de6736fd7678d0f0f4eab4d759f679c21
+nvidia-cuda-runtime==13.5.37 \
+    --hash=sha256:dcbcb895bc2098b4a6784b12b0a1ceafb09359dc95f4f92ea688ac935a106877 \
+    --hash=sha256:de2dc5a7367974228b0a69588a9acc9340d3768bef1bf38bf0801eb08497cd2d \
+    --hash=sha256:df2b79a8852f10d1fef8c848489c49eebb5754051bf870202a862831412b179d \
+    --hash=sha256:f225d3fa5ea6bfbb58fc4979ef72375cbe661d9107f0d8a4ff22cc151525e4a9
+nvidia-cudnn-cu13==9.28.0.42 \
+    --hash=sha256:6138b32742c843fddf24405c4e6e32cbf3ff07a811a0e1a0ff9879ac82e079e4 \
+    --hash=sha256:7358353c75bb121a58e5f7712fe6d588883dc1df8ba00f428237e44e97543c4d \
+    --hash=sha256:97c70c7fe0ea32e97fcd0b40157915d27f0d1e238479e537e81b12ed3c8f17ae \
+    --hash=sha256:fdddb1a8be28b5c95893bb1646822c53b3cf4a762e957c74ee1dd8f411993f05
+nvidia-cufft==12.5.0.14 \
+    --hash=sha256:091cde103312d6e09366122fe3f67092dcfd94cc9785029d695d6bcffaa76fdf \
+    --hash=sha256:77eaacecf83758e8e20458a199d56359d46596e3a2814af741f27d1f483381e9 \
+    --hash=sha256:78e7585159ecf37d73af1ce43a5dea7fd3360e1af71cde08f070c07966a336bc \
+    --hash=sha256:b8be26837a5abad2b5b74f3e92dd29f622a42934b355be0961a48712cbba23ad
+nvidia-curand==10.4.5.25 \
+    --hash=sha256:07c75d8ba14b627d1a01d2c1bfa1eece88f25d564d3aae7e6b6fb44f7bbec9c1 \
+    --hash=sha256:22bb226a857e5888fe6b54ae465fc4371296bcff13a35f79e19691bcf454f529 \
+    --hash=sha256:c998546b8bd1c746f2872cc11ec4c79b006dfed2a5b0acd25e7b710522b2d7f4 \
+    --hash=sha256:f6a02a70f5b9715235df31a164a4bf3237a45be1600a5f435f5e4a0d8682eb22
+nvidia-nvjitlink==13.5.37 \
+    --hash=sha256:280d7cb9649704145f074b8dbde500de04ce02d0872e066e20a83c17bcaa93eb \
+    --hash=sha256:4465d4e8f2212118220b580c82523c5654f93a62906bd51d29d79bdfc12376c1 \
+    --hash=sha256:893f6f9a55b2720ed94913b5ba3332e972da8c78dfa2863d0244403dbd528ffc \
+    --hash=sha256:eb30348ae64c525180a280025dd12a089c3e2e1dc4e19cdd58f68c6edc622404
+onnxruntime-gpu==1.31.1 \
+    --hash=sha256:05d548956197b9d01f59b625de740e0d6be3593f874e241a12dc0362650ecdf7 \
+    --hash=sha256:1a667241591c89c516b43689a0ae38c4d99d0cb45a2220e95a9f822aeb6887c4 \
+    --hash=sha256:2bb1e9373baba88f6415257f5b6a589d23e23c16004f7d89adf4344eada5749e \
+    --hash=sha256:52a9ec263f331678e8fcb4f71a6fa44e5f901f0aac0b61fbe5a61517f2b4cc7d \
+    --hash=sha256:7cf960bcfa6b27b96ee39c87fa859275991cc6dbb7af379cd5449fcd0970010c \
+    --hash=sha256:856e974257474d7226e6e1d8658a5c0258983d9ade14a6c410fa41b9c1360c06 \
+    --hash=sha256:a0f1725c5a6d1ef82d63498b5ebc25e2c90c9560e91dc76db9be4a49162d4d33 \
+    --hash=sha256:bfe1bb15168f7dcc76e970eff8f07615adb87a128d53bc9f00d8def2c3dbf1b6 \
+    --hash=sha256:c2aa2de1bd58063676b2666601e653992fa590277be3e3dd520e373ebcf87d9e \
+    --hash=sha256:ca5e4446e271e57e325d7fd41c90707c19c9f9615d1f8499837ee856f5705ad9 \
+    --hash=sha256:dc878916611b8a816000ffedacc5f5988f77bb93bf9655ad20144ee3acb08e55 \
+    --hash=sha256:e26c475fe361b2015f45b4b824bd13f0bb20204e59b62814e6f0acd5f3d491a6 \
+    --hash=sha256:f659529e07c21ec6b6179fd1bfaf82ffb7c3dc9c0916e18f6f313f9a690891be \
+    --hash=sha256:f7ab9c9c6189b8bc477797148af699fc24f0dc550020c64099e1db7400b44621 \
+    --hash=sha256:f9b578f6be39aa93611724b2a26f55d76a8a265415146e5be50ce41612a9d19a \
+    --hash=sha256:fd98341ba71c093153f0dcfc53eb69d57f706866fb45e94e5b0cde5d97a50dbf

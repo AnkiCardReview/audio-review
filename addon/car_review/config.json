@@ -2,6 +2,7 @@
     "decks": [],
     "days_ahead": 1,
     "voice_threads": 3,
+    "voice_gpu": false,
     "auto_apply": false,
     "auto_voice": true,
     "python": "",

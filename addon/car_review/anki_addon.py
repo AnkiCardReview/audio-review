@@ -119,6 +119,7 @@ def remember_settings() -> None:
             auto_voice=bool(setting("auto_voice")),
             rollover=int(mw.col.get_config("rollover", 4)),
             voice_threads=int(setting("voice_threads") or 3),
+            voice_gpu=bool(setting("voice_gpu")),
         )
         marker = HOME / "morning-task.json"
         if marker.exists():

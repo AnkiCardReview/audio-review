@@ -24,10 +24,13 @@ from .common import HOME, VOICE_DIR, voice_options
 RATE = 24000
 VOICE = "af_heart"
 GENTLE_THREADS = 3  # the default: leaves the rest of the processor free while studying
-# Graphics-card engines the voice runs on. DirectML (onnxruntime-directml, Windows) can't: it
-# fails on the model's ConvTranspose layer (tested 2026-11-05, fp16, fp16-gpu and fp32 models).
-# CUDA (onnxruntime-gpu, NVIDIA) should; not installed by voice setup yet.
+# Graphics-card engines the voice runs on: CUDA (onnxruntime-gpu with NVIDIA's libraries, from
+# Settings ▸ Voice ▸ Use my NVIDIA graphics card). DirectML (AMD/Intel on Windows) can't run the
+# model as it is: it fails on its ConvTranspose layer (tested 2026-11-05 on fp16, fp16-gpu, fp32).
 GPU_PROVIDERS = ("CUDAExecutionProvider",)
+# cuDNN's exhaustive search for the fastest method runs again for every new clip length; its
+# quick heuristic is the better trade for many short clips.
+PROVIDER_OPTIONS = {"CUDAExecutionProvider": {"cudnn_conv_algo_search": "HEURISTIC"}}
 DEVICE_FILE = HOME / "voice-device.json"  # what the voice last ran on, for Settings to show
 
 
@@ -124,7 +127,12 @@ def _onnx_engine(gpu: bool = False):
         options = ort.SessionOptions()
         options.intra_op_num_threads = threads()
         options.inter_op_num_threads = 1
-        session = ort.InferenceSession(str(VOICE_DIR / MODEL_FILE), options, providers=[provider, "CPUExecutionProvider"])
+        first = (provider, PROVIDER_OPTIONS[provider]) if provider in PROVIDER_OPTIONS else provider
+        session = ort.InferenceSession(str(VOICE_DIR / MODEL_FILE), options, providers=[first, "CPUExecutionProvider"])
+        # A graphics-card engine that can't start (old driver, missing library) quietly leaves the
+        # session on the processor: say so, rather than report the card.
+        if provider not in session.get_providers():
+            raise RuntimeError(f"{provider} couldn't start (graphics driver or library)")
         return Kokoro.from_session(session, str(VOICE_DIR / VOICES_FILE))
 
     model, device, provider, note = None, "processor", None, ""
@@ -134,6 +142,8 @@ def _onnx_engine(gpu: bool = False):
             note = "no graphics-card engine installed"
         else:
             try:
+                if hasattr(ort, "preload_dlls"):  # CUDA and cuDNN from NVIDIA's packages, not the system
+                    ort.preload_dlls()
                 model = model_on(provider)
                 model.create(g2p("Ready.")[0], voice=VOICE, speed=1.0, is_phonemes=True)  # can it really?
                 device = "graphics card"

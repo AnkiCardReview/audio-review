@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import json
 import os
 import platform
 import shutil
@@ -177,7 +178,7 @@ def _env() -> dict:
     return env
 
 
-def _run(args: list, label: str, report: Report, cancelled: Callable[[], bool]) -> None:
+def _run(args: list, label: str, report: Report, cancelled: Callable[[], bool], check: bool = True) -> None:
     report(label, None)
     flags = subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0
     _log("$ " + " ".join(str(a) for a in args))
@@ -188,7 +189,7 @@ def _run(args: list, label: str, report: Report, cancelled: Callable[[], bool]) 
         if cancelled():
             proc.kill()
             raise Cancelled()
-    if proc.wait() != 0:
+    if proc.wait() != 0 and check:
         raise SetupError(f"{label.rstrip('…')} didn't finish. Try again; if it keeps failing, see CarReview/setup.log.")
 
 
@@ -211,6 +212,95 @@ def install_uv(report: Report, cancelled: Callable[[], bool]) -> Path:
             uv.write_bytes(t.extractfile(member).read())
         uv.chmod(0o755)
     return uv
+
+
+# The NVIDIA graphics-card engine: ONNX Runtime with CUDA 13 and cuDNN 9, all from pinned,
+# hash-checked packages (gpu-nvidia-requirements.txt). It replaces the standard onnxruntime.
+NVIDIA_REQUIREMENTS = ADDON_DIR / "gpu-nvidia-requirements.txt"
+NVIDIA_DOWNLOAD_GB = 1.3
+NVIDIA_DISK_GB = 3
+NVIDIA_PACKAGES = ["onnxruntime-gpu", "nvidia-cublas", "nvidia-cuda-nvrtc", "nvidia-cuda-runtime", "nvidia-cudnn-cu13",
+                   "nvidia-cufft", "nvidia-curand", "nvidia-nvjitlink"]
+
+
+def graphics_cards() -> list[str]:
+    """The graphics cards Windows reports, or [] elsewhere (for Settings to show)."""
+    if sys.platform != "win32":
+        return []
+    try:
+        r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command",
+                            "(Get-CimInstance Win32_VideoController).Name"], capture_output=True, text=True,
+                           timeout=30, creationflags=subprocess.CREATE_NO_WINDOW)
+        return [line.strip() for line in r.stdout.splitlines() if line.strip()]
+    except (OSError, subprocess.SubprocessError):
+        return []
+
+
+def gpu_supported() -> str | None:
+    """None if the NVIDIA engine can be installed here, else why not."""
+    if _platform_key() != ("win32", "amd64"):
+        return "The graphics-card engine is only available on Windows for now."
+    return None
+
+
+def gpu_engine_installed(python: Path | None = None) -> bool:
+    """Whether the helper's Python has the NVIDIA (CUDA) engine."""
+    py = python or helper_python()
+    if not py.exists():
+        return False
+    try:
+        r = subprocess.run([str(py), "-c", "import onnxruntime as o; print(','.join(o.get_available_providers()))"],
+                           capture_output=True, text=True, timeout=120,
+                           creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return "CUDAExecutionProvider" in r.stdout
+
+
+def last_device() -> dict:
+    """What the voice last ran on, and why not the graphics card if it was asked for (voice.py)."""
+    try:
+        return json.loads((HOME / "voice-device.json").read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def install_gpu(report: Report, cancelled: Callable[[], bool] = lambda: False) -> None:
+    """Swap in the NVIDIA engine and check the card makes clips. If the new engine doesn't run at
+    all, the standard one is put back. If it runs but the card can't make a clip (an old card or
+    driver), the processor is used and last_device() says why."""
+    reason = gpu_supported()
+    if reason:
+        raise SetupError(reason)
+    if not helper_python().exists():
+        raise SetupError("Set up the voice first.")
+    _log("---- NVIDIA engine")
+    uv = install_uv(report, cancelled)
+    _run([uv, "pip", "uninstall", "--python", helper_python(), "onnxruntime"],
+         "Switching the voice engine…", report, cancelled, check=False)
+    _run([uv, "pip", "install", "--python", helper_python(), "--require-hashes", "--no-deps", "--only-binary", ":all:",
+          "-r", NVIDIA_REQUIREMENTS],
+         f"Downloading NVIDIA's engine (about {NVIDIA_DOWNLOAD_GB} GB; this takes a while)…", report, cancelled)
+    report("Testing the graphics card…", None)
+    check = subprocess.run([str(helper_python()), "-m", f"{ADDON_DIR.name}.helper", "voice-check", "--gpu"],
+                           capture_output=True, text=True, timeout=900, cwd=str(ADDON_DIR.parent),
+                           creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0)
+    _log(check.stdout + check.stderr)
+    if check.returncode != 0:
+        remove_gpu(report, cancelled)
+        raise SetupError("NVIDIA's engine didn't work here, so the standard one is back. Details: CarReview/setup.log.")
+    on_card = last_device().get("device") == "graphics card"
+    report("Graphics card ready ✓" if on_card else "The card couldn't make audio: the processor is used.", 1.0)
+
+
+def remove_gpu(report: Report, cancelled: Callable[[], bool] = lambda: False) -> None:
+    """Put the standard (processor) engine back and delete NVIDIA's libraries."""
+    uv = install_uv(report, cancelled)
+    _run([uv, "pip", "uninstall", "--python", helper_python(), *NVIDIA_PACKAGES],
+         "Removing NVIDIA's engine…", report, cancelled, check=False)
+    _run([uv, "pip", "install", "--python", helper_python(), "--require-hashes", "--no-deps", "--only-binary", ":all:",
+          "-r", REQUIREMENTS], "Reinstalling the standard voice engine…", report, cancelled)
+    report("Standard engine back ✓", 1.0)
 
 
 def installed_engine(python: Path | None = None) -> str | None:
