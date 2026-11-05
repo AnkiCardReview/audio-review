@@ -29,7 +29,7 @@
 const MAX_FILE_BYTES = 1_900_000; // D1 rows top out at 2 MB
 const MAX_BOX_BYTES = 100_000_000; // the laptop keeps what's waiting under 80 MB
 const MAX_DAY_WRITES = 600; // uploads and deletes per box per UTC day; a normal day is a few dozen
-const MAX_BATCH = 200; // names in one batch delete
+const MAX_BATCH = 90; // names in one batch delete (D1 allows 100 values per query, the box is one)
 const KEEP_MS = 3 * 24 * 60 * 60 * 1000;
 const BOX = /^[0-9a-f]{64}$/;
 const NAME = /^[a-z0-9][a-z0-9/_.-]{0,127}$/;

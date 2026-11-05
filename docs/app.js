@@ -11,7 +11,7 @@
   // A local test relay can be set on a localhost page only (tools: wrangler dev).
   const RELAY = (location.hostname === 'localhost' && localStorage.getItem('relayUrl'))
     || 'https://car-review-relay.ankicardreview.workers.dev/v1';
-  const APP_VERSION = 19; // also in index.html (app.js?v=); sent with grades so problems can be traced
+  const APP_VERSION = 20; // also in index.html (app.js?v=); sent with grades so problems can be traced
   // Audio kept on the phone (Storage ▸ Keep up to; 0 = no limit): the oldest-used clips go first.
   const audioCap = () => { const mb = Number(localStorage.getItem('audioLimit') || 1000); return mb > 0 ? mb * 1e6 : Infinity; };
   const BIG_DOWNLOAD = 50e6;   // ask first before downloading more audio than this at once
@@ -130,8 +130,9 @@
     if (!r.ok) throw new Error(`relay said ${r.status}`);
   }
   async function relayDeleteMany(names) {
-    for (let i = 0; i < names.length && !oldRelay; i += 200) {
-      const r = await relayPost('?delete', enc.encode(names.slice(i, i + 200).join('\n')));
+    // At most 90 names a request: the relay's database takes 100 values per query.
+    for (let i = 0; i < names.length && !oldRelay; i += 90) {
+      const r = await relayPost('?delete', enc.encode(names.slice(i, i + 90).join('\n')));
       if (r.ok) continue;
       if (r.status !== 401 && r.status !== 405) throw new Error(`relay said ${r.status}`);
       oldRelay = true;
