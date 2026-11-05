@@ -744,6 +744,10 @@ def main() -> None:
     elif args.cmd == "status":
         print(STATUS.read_text() if STATUS.exists() else "{}")
     elif args.cmd == "link":
+        # Showing the QR code may mean a phone is (re)pairing, starting with no audio: forget what
+        # the last send assumed the phone had, so the next send checks and sends what's missing.
+        LIST_SENT.unlink(missing_ok=True)
+        HAVE_CACHE.unlink(missing_ok=True)
         print(pairing_link(load_pairing()))
     elif args.cmd == "engine":
         print(available_engine() or "none")
