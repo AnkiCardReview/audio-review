@@ -59,6 +59,9 @@
   .hero { text-align: center; padding: 20px 16px 12px; }
   .hero .num { font-size: 56px; font-weight: 800; line-height: 1; letter-spacing: -0.02em; }
   .hero .num-label { color: var(--muted); margin: 4px 0 12px; }
+  .estimate { margin: -4px 0 12px; }
+  .estimate b { display: block; font-size: 20px; font-weight: 700; }
+  .estimate small { display: block; font-size: 13px; color: var(--muted); }
   .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 0 0 10px; }
   .chip { background: var(--panel2); border-radius: 999px; padding: 4px 10px; font-size: 14px; color: var(--muted); }
   .chip b { color: var(--text); font-weight: 600; }
@@ -217,6 +220,7 @@
     <div class="panel hero">
       <div class="num" id="h-due">–</div>
       <div class="num-label">cards left today</div>
+      <div id="h-estimate" class="estimate hidden"><b id="h-est-time"></b><small id="h-est-why"></small></div>
       <div class="chips">
         <span class="chip">Offline <b id="h-ready">–</b></span>
         <span class="chip">From laptop <b id="h-made">–</b></span>
@@ -322,6 +326,6 @@
     <p class="hint d-help">Hold 🔒 to lock the screen for your pocket: your remote and headphone buttons keep working.<br>Car buttons or headphones: ⏭ answer, ⏭ again = Good, ⏮ = Again.<br>On a question: ⏮ repeats it, ⏮⏮ goes back a card, ⏮⏮⏮ skips it.<br>Press about once a second; most cars drop faster presses.</p>
   </section>
 </main>
-<script src="app.js?v=21"></script>
+<script src="app.js?v=22"></script>
 </body>
 </html>

@@ -11,7 +11,7 @@
   // A local test relay can be set on a localhost page only (tools: wrangler dev).
   const RELAY = (location.hostname === 'localhost' && localStorage.getItem('relayUrl'))
     || 'https://car-review-relay.ankicardreview.workers.dev/v1';
-  const APP_VERSION = 21; // also in index.html (app.js?v=); sent with grades so problems can be traced
+  const APP_VERSION = 22; // also in index.html (app.js?v=); sent with grades so problems can be traced
   // Audio kept on the phone (Storage ▸ Keep up to; 0 = no limit): the oldest-used clips go first.
   const audioCap = () => { const mb = Number(localStorage.getItem('audioLimit') || 1000); return mb > 0 ? mb * 1e6 : Infinity; };
   const BIG_DOWNLOAD = 50e6;   // ask first before downloading more audio than this at once
@@ -651,6 +651,7 @@
     const total = state ? state.grades.length : 0;
     $('h-up').innerHTML = !state || !total ? '–' : state.uploaded >= total ? '<span class="ok">✓ all</span>' : `<span class="warn">${total - state.uploaded} waiting</span>`;
     $('start').disabled = !list || ready === 0;
+    renderEstimate(due);
     renderToday();
     renderSync();
     renderStorage();
@@ -695,11 +696,12 @@
     const firstSeen = s.first || {};
     const seen = new Set();
     const decks = new Map(); // deck -> [right, reviews], first answer of the day only
-    let answers = 0, again = 0, right = 0, reviews = 0, ms = 0;
+    let answers = 0, again = 0, right = 0, reviews = 0, ms = 0, active = 0;
     for (const x of sessions) {
       ms += Math.max(0, x.end - x.start);
       for (const g of x.grades) {
         answers += 1;
+        active += Math.min(60000, g.ms || 0);
         if (g.rating === 1) again += 1;
         const first = !seen.has(g.cid);
         seen.add(g.cid);
@@ -716,14 +718,15 @@
         right += g.rating > 1 ? 1 : 0;
       }
     }
-    return { sessions, answers, again, right, reviews, cards: seen.size, ms, mins: Math.round(ms / 60000), decks: [...decks] };
+    return { sessions, answers, again, right, reviews, cards: seen.size, ms, active, mins: Math.round(ms / 60000), decks: [...decks] };
   }
   // Keep a day's totals for "Past days" (after every answer, and before a new day replaces them).
   function saveDay(s = state) {
     if (!s) return;
     const d = dayStats(s);
     if (!d.answers) { delete pastDays[s.day]; } else {
-      pastDays[s.day] = { at: d.sessions[0].start, cards: d.cards, answers: d.answers, mins: d.mins, right: d.right, reviews: d.reviews, v: 2 };
+      pastDays[s.day] = { at: d.sessions[0].start, cards: d.cards, answers: d.answers, mins: d.mins, right: d.right, reviews: d.reviews,
+        again: d.again, active: d.active, v: 3 };
     }
     for (const day of Object.keys(pastDays).map(Number).sort((a, b) => b - a).slice(DAYS_KEPT)) delete pastDays[day];
     try { localStorage.setItem('days', JSON.stringify(pastDays)); } catch { /* only a summary */ }
@@ -732,6 +735,60 @@
   const pct = (a, b) => (b ? `${Math.round((100 * a) / b)}%` : '–');
   const minutes = (ms) => (ms > 0 && ms < 30000 ? '<1' : String(Math.round(ms / 60000)));
   const clock = (ms) => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  // ---------- How long the rest of today should take ----------
+  // From this phone's own history (the last 14 days with answers, plus today so far):
+  // - answers per card: how often a card is heard in a day, Again repeats and learning steps included;
+  // - seconds per answer: from the question starting to your answer (listening, thinking, the
+  //   answer clip), so waits between learning steps and pauses don't count;
+  // - the Again rate, for cards already started today (each Again brings a card back once more).
+  // New cards aren't in Car Review, so they're not in it either.
+  const EST_DAYS = 14;
+  function studyHabits() {
+    const today = dayStats();
+    const days = Object.entries(pastDays).filter(([day, v]) => (!state || Number(day) < state.day) && v.answers)
+      .sort((a, b) => b[0] - a[0]).slice(0, EST_DAYS).map(([, v]) => v);
+    const sum = (rows, key) => rows.reduce((n, v) => n + (v[key] || 0), 0);
+    const all = [...days, today];
+    const timed = [...days.filter((v) => v.v >= 3 && v.active), ...(today.active ? [today] : [])];
+    const cards = sum(all, 'cards'), answers = sum(all, 'answers');
+    let secs = timed.length ? sum(timed, 'active') / 1000 / sum(timed, 'answers') : null;
+    // Days from before app 22 kept only session minutes (which include waits): a rough stand-in.
+    if (!secs && answers) secs = Math.min(30, (sum(all, 'mins') * 60) / answers);
+    const againRows = [...days.filter((v) => v.v >= 3), today];
+    const againOf = sum(againRows, 'answers');
+    return {
+      perCard: cards ? Math.max(1, answers / cards) : 1.3,
+      secs: secs || 15,
+      again: againOf ? Math.min(0.6, sum(againRows, 'again') / againOf) : 0.15,
+      days: days.length + (today.answers ? 1 : 0),
+      known: answers > 0,
+    };
+  }
+  function estimateLeft(cards) {
+    const h = studyHabits();
+    const first = (state && state.first) || {};
+    const started = cards.filter((c) => first[c.cid]).length;
+    const answers = (cards.length - started) * h.perCard + started / (1 - h.again);
+    return { ms: answers * h.secs * 1000, answers: Math.round(answers), ...h };
+  }
+  function duration(ms) {
+    const mins = ms / 60000;
+    if (mins < 1) return 'under a minute';
+    if (mins < 30) return `${Math.round(mins)} min`;
+    const r = Math.round(mins / 5) * 5; // a guess: no false precision
+    return r < 60 ? `${r} min` : `${Math.floor(r / 60)} h${r % 60 ? ` ${r % 60} min` : ''}`;
+  }
+  function renderEstimate(due) {
+    const show = !!list && due.length > 0;
+    $('h-estimate').classList.toggle('hidden', !show);
+    if (!show) return;
+    const e = estimateLeft(due);
+    $('h-est-time').textContent = `about ${duration(e.ms)} of study`;
+    $('h-est-why').textContent = e.known
+      ? `≈ ${e.answers} answers with repeats, ${Math.round(e.secs)} s each · from your last ${e.days} day${e.days === 1 ? '' : 's'}`
+      : 'A first guess: it learns your pace as you go';
+  }
+
   function renderToday() {
     const d = dayStats();
     $('t-cards').textContent = String(d.cards);
@@ -949,8 +1006,9 @@
     if (navigator.mediaSession) navigator.mediaSession.metadata = new MediaMetadata({ title, artist: 'Car Review' });
   }
   function counts() {
-    const left = todaysCards().filter(cardReady).length;
-    return `${playedThisDrive} done this session · ${left} left`;
+    const cards = todaysCards().filter(cardReady);
+    return `${playedThisDrive} done this session · ${cards.length} left`
+      + (cards.length ? ` · ~${duration(estimateLeft(cards).ms)}` : '');
   }
   const cue = (which) => (list.announce && audioReady.has(which.audio) ? which.audio : null);
 
@@ -1493,7 +1551,7 @@
   // Lets a desktop browser simulate the buttons and the clock while testing.
   window.carReviewTest = {
     forward, back, previousCard, next: () => goNext(), advance: (ms) => { clockOffset += ms; },
-    start: startDrive, stop: stopDrive, get locked() { return locked; },
+    start: startDrive, stop: stopDrive, get locked() { return locked; }, estimateLeft, studyHabits,
     timingSummary, dayStats, get stage() { return stage; }, get current() { return current; }, get state() { return state; }, get list() { return list; },
   };
 
