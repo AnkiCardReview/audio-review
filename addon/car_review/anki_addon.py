@@ -118,6 +118,7 @@ def remember_settings() -> None:
             days_ahead=int(setting("days_ahead")),
             auto_voice=bool(setting("auto_voice")),
             rollover=int(mw.col.get_config("rollover", 4)),
+            voice_threads=int(setting("voice_threads") or 3),
         )
         marker = HOME / "morning-task.json"
         if marker.exists():
@@ -245,6 +246,7 @@ def prepare_whole_decks() -> None:
         if not on_charger() and not askUser("Your computer is on battery. Audio is only made while it's "
                                             "plugged in, so it will wait until you plug in. Start anyway?"):
             return
+        remember_settings()  # so the helper uses the current voice settings
         path = HOME / "outbox" / "whole-decks.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps({"cards": chosen}), encoding="utf-8")

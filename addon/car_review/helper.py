@@ -115,10 +115,10 @@ def make_clip(voice: Voice, text: str, progress: Progress) -> bytes:
         started = time.time()
         progress.run(voice.load)
         progress.phase = ""
-        progress.event(f"Voice ready ({voice.engine} engine, {time.time() - started:.0f} s).")
+        progress.event(f"Voice ready ({voice.label}, {time.time() - started:.0f} s).")
     started = time.time()
     clip = progress.run(voice.mp3, text)
-    note_speed(time.time() - started, voice.engine)
+    note_speed(time.time() - started, voice.label)
     return clip
 
 
@@ -717,7 +717,8 @@ def main() -> None:
     sub.add_parser("link", help="print the phone pairing link")
     sub.add_parser("repair", help="forget the old phone: delete its box and make a new pairing")
     sub.add_parser("engine", help="print which voice engine is installed (onnx, torch or none)")
-    sub.add_parser("voice-check", help="make one short clip to check the voice works")
+    vc = sub.add_parser("voice-check", help="make one short clip to check the voice works")
+    vc.add_argument("--gpu", action="store_true", help="try the graphics card, and time a few clips")
     sub.add_parser("fetch-grades", help="download and decrypt the phone's grades into the inbox folder")
     # Retired: the 4:30 am task (its runs now just remove it) and the overnight wait.
     sub.add_parser("morning", help="(retired) removes the old 4:30 am task")
@@ -748,10 +749,20 @@ def main() -> None:
     elif args.cmd == "engine":
         print(available_engine() or "none")
     elif args.cmd == "voice-check":
-        voice = Voice()
+        voice = Voice(gpu=True if args.gpu else None)
         started = time.time()
         clip = voice.mp3("Car Review is ready. Drive safely.")
-        print(json.dumps({"engine": voice.engine, "bytes": len(clip), "secs": round(time.time() - started, 1)}))
+        result = {"engine": voice.engine, "device": voice.device, "bytes": len(clip), "secs": round(time.time() - started, 1)}
+        if args.gpu:  # a few more clips, timed, once the voice is loaded
+            started = time.time()
+            for line in ("The first line treatment for absence seizures is ethosuximide.",
+                         "Beta blockers lower heart rate and blood pressure.",
+                         "The most common cause of community acquired pneumonia is Streptococcus pneumoniae."):
+                voice.mp3(line)
+            result["secs_per_clip"] = round((time.time() - started) / 3, 2)
+            from .voice import DEVICE_FILE
+            result["note"] = json.loads(DEVICE_FILE.read_text()).get("note", "") if DEVICE_FILE.exists() else ""
+        print(json.dumps(result))
     elif args.cmd == "repair":
         if PAIRING.exists():
             old = load_pairing(create=False)

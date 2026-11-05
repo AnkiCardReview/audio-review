@@ -13,6 +13,7 @@ effect straight away.
 from __future__ import annotations
 
 import io
+import os
 import sys
 import threading
 from dataclasses import dataclass
@@ -32,6 +33,7 @@ APP_URL_FOR_SCREENSHOTS = APP_URL  # the app's address without a pairing code
 DEFAULTS = {
     "decks": [],          # decks for the car, played in this order
     "days_ahead": 1,      # send today's cards plus this many days ahead
+    "voice_threads": 3,   # processor threads for making audio (Settings ▸ Voice)
     "auto_apply": False,  # apply car grades on opening without asking (summary shown afterwards)
     "auto_voice": True,   # make missing audio automatically when Anki closes while plugged in
     "python": "",         # Car Review's Python, if not in the default place
@@ -370,6 +372,21 @@ class SettingsDialog(QDialog):
         row.addStretch(1)
         layout.addLayout(row)
         layout.addWidget(text("<small>You can carry on with the next steps while it downloads.</small>"))
+        layout.addSpacing(12)
+        cores = os.cpu_count() or 4
+        threads_row = QHBoxLayout()
+        threads_row.addWidget(QLabel("Use"))
+        self.threads = QSpinBox()
+        self.threads.setRange(1, cores)
+        self.threads.setValue(min(cores, int(self.config.get("voice_threads") or 3)))
+        threads_row.addWidget(self.threads)
+        threads_row.addWidget(QLabel(f"of this computer's {cores} processor threads for making audio"))
+        threads_row.addStretch(1)
+        layout.addLayout(threads_row)
+        layout.addWidget(text(
+            "<small>3 (the default) leaves the computer free while you study. More can be faster on a desktop "
+            "while it's not doing much else; on many laptops it makes little difference. "
+            "Tools ▸ Car Review ▸ Make audio for whole decks shows the speed this computer reaches.</small>"))
         layout.addStretch(1)
         self.engine: str | None = None
         self.engine_checked = False
@@ -522,6 +539,7 @@ class SettingsDialog(QDialog):
             "days_ahead": self.days.value(),
             "auto_voice": self.auto_voice.isChecked(),
             "auto_apply": self.auto_apply.isChecked(),
+            "voice_threads": self.threads.value(),
             "setup_done": True,
         })
         return cfg
@@ -530,6 +548,13 @@ class SettingsDialog(QDialog):
         cfg = self.collect()
         mw.addonManager.writeConfig(__name__, cfg)
         self.config = cfg
+        if cfg["decks"]:
+            try:
+                from . import anki_addon
+
+                anki_addon.remember_settings()  # the helper reads the voice settings from there
+            except Exception as err:  # saving the settings themselves must not fail over this
+                print(f"Car Review: couldn't pass the settings to the helper yet: {err}")
         if close:
             self.timer.stop()
             self.accept()

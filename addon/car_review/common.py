@@ -58,6 +58,16 @@ def forget_what_phone_has() -> None:
         path.unlink(missing_ok=True)
 
 
+def voice_options() -> dict:
+    """How to run the voice, from Car Review's Settings in Anki (saved in morning.json for the
+    helper): processor threads (0: the gentle default) and whether to use the graphics card."""
+    try:
+        saved = json.loads((HOME / "morning.json").read_text())
+    except (OSError, ValueError):
+        saved = {}
+    return {"threads": int(saved.get("voice_threads") or 0), "gpu": bool(saved.get("voice_gpu"))}
+
+
 # This computer's measured voicing speed, for time estimates (written as clips are made).
 VOICE_SPEED = HOME / "voice-speed.json"
 
