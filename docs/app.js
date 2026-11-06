@@ -1,17 +1,17 @@
 'use strict';
-// Car Review phone app: downloads the encrypted car list and audio from the relay, plays cards
-// with the steering-wheel (next/previous track) buttons, and keeps your grades on the phone,
+// Audio Review phone app: downloads the encrypted card list and audio from the relay, plays cards
+// with headphone, remote, on-screen or steering-wheel (next/previous track) buttons, and keeps your grades on the phone,
 // uploading them (encrypted) for the Anki add-on. Grades are not applied to Anki by this app.
 //
 // Like Anki, it syncs when you tap Sync, plus three times by itself: when it opens on a new
-// Anki day (or with answers still to send), after Stop, and when a drive reaches the end. A sync
+// Anki day (or with answers still to send), after Stop, and when a session reaches the end. A sync
 // downloads the list only if it changed, fetches new audio in a few bundles and deletes them
 // from the mailbox, and tells the laptop which clips this phone holds, so nothing is sent twice.
 (() => {
   // A local test relay can be set on a localhost page only (tools: wrangler dev).
   const RELAY = (location.hostname === 'localhost' && localStorage.getItem('relayUrl'))
     || 'https://car-review-relay.ankicardreview.workers.dev/v1';
-  const APP_VERSION = 23; // also in index.html (app.js?v=); sent with grades so problems can be traced
+  const APP_VERSION = 24; // also in index.html (app.js?v=); sent with grades so problems can be traced
   // Audio kept on the phone (Storage ▸ Keep up to; 0 = no limit): the oldest-used clips go first.
   const audioCap = () => { const mb = Number(localStorage.getItem('audioLimit') || 1000); return mb > 0 ? mb * 1e6 : Infinity; };
   const BIG_DOWNLOAD = 50e6;   // ask first before downloading more audio than this at once
@@ -153,7 +153,7 @@
   }
 
   // ---------- App state ----------
-  let rawList = null;        // the car list as downloaded from the add-on
+  let rawList = null;        // the card list as downloaded from the add-on
   let list = null;           // the list in use: rawList, or its next day's part once that day has begun
   let state = null;          // today's progress on this phone
   let audioReady = new Set();// clip names stored on the phone
@@ -204,7 +204,7 @@
     if (!n || now() / 1000 < raw.next_day_at) return raw;
     const byId = new Map(raw.cards.map((c) => [c.cid, c]));
     const cards = n.cards.map((c) => (c.same ? byId.has(c.cid) && { ...byId.get(c.cid), ...c } : c)).filter(Boolean);
-    // made_at stays the list's: car answers are checked against reviews done elsewhere since then.
+    // made_at stays the list's: audio answers are checked against reviews done elsewhere since then.
     return { ...raw, anki_today: n.anki_today, next_day_at: n.next_day_at, review_limits: n.review_limits,
       learn_ahead_secs: n.learn_ahead_secs, cards, held_back: [], next: null, rolled: true };
   }
@@ -273,7 +273,7 @@
     const t = now();
     const cards = todaysCards().filter(cardReady);
     // Decks play one after another. As in Anki, a learning card from the list waits for its
-    // deck's turn; cards you missed in the car come back when due, whichever deck is playing.
+    // deck's turn; cards you missed in a session come back when due, whichever deck is playing.
     const firstOther = cards.find((c) => learningDue(c) === null);
     const currentBlock = firstOther ? firstOther.block : Infinity;
     // As in Anki: learning cards due now come first, then the rest of the queue, and only when
@@ -444,7 +444,7 @@
       if (!(await uploadGrades())) throw new Error('no connection');
       const got = await relayGetIfChanged('list', list ? synced.stamp : null);
       if (got.missing) {
-        message('Waiting for your first car list. On your computer, close Anki (or use Tools ▸ Car Review ▸ Send to Car). '
+        message('Waiting for your first card list. On your computer, close Anki (or use Tools ▸ Audio Review ▸ Send to phone). '
           + 'The first time, your computer also makes the audio, which can take a while; cards appear here as they are ready.');
       } else if (got.data) {
         rawList = JSON.parse(dec.decode(await unzip(got.data)));
@@ -468,8 +468,8 @@
       log(`synced (${why})${got.unchanged ? ': list unchanged' : ''}`);
       if (list) {
         message(list.pending ? `Your computer is still preparing ${list.pending} more cards. Sync again later.`
-          : list.unvoiced ? `${list.unvoiced} more cards are waiting for audio on your computer. Plug it in and close Anki, or use Anki ▸ Tools ▸ Car Review ▸ Prepare audio.`
-          : !todaysCards().length ? 'Nothing left to review today in your car decks. 🎉'
+          : list.unvoiced ? `${list.unvoiced} more cards are waiting for audio on your computer. Plug it in and close Anki, or use Anki ▸ Tools ▸ Audio Review ▸ Prepare audio.`
+          : !todaysCards().length ? 'Nothing left to review today in your audio decks. 🎉'
           : '');
       }
     } catch (err) {
@@ -741,7 +741,7 @@
   // - seconds per answer: from the question starting to your answer (listening, thinking, the
   //   answer clip), so waits between learning steps and pauses don't count;
   // - the Again rate, for cards already started today (each Again brings a card back once more).
-  // New cards aren't in Car Review, so they're not in it either.
+  // New cards aren't in Audio Review, so they're not in it either.
   const EST_DAYS = 14;
   function studyHabits() {
     const today = dayStats();
@@ -1003,7 +1003,7 @@
     const remaining = todaysCards().filter(cardReady).length;
     $('d-bar').style.width = `${Math.round((100 * playedThisDrive) / Math.max(1, playedThisDrive + remaining))}%`;
     const title = current ? `${text} · ${current.deck}` : text;
-    if (navigator.mediaSession) navigator.mediaSession.metadata = new MediaMetadata({ title, artist: 'Car Review' });
+    if (navigator.mediaSession) navigator.mediaSession.metadata = new MediaMetadata({ title, artist: 'Audio Review' });
   }
   function counts() {
     const cards = todaysCards().filter(cardReady);
@@ -1500,7 +1500,7 @@
   $('d-back').addEventListener('click', pressed('screen', leftAction));
   $('d-prev').addEventListener('click', pressed('screen', backACard));
   $('d-skip').addEventListener('click', pressed('screen', () => {
-    if (stage !== 'question' || !confirm("Skip this card in the car from now on? (It doesn't work as audio.) It stays due in Anki as normal.")) return;
+    if (stage !== 'question' || !confirm("Skip this card in Audio Review from now on? (It doesn't work as audio.) It stays due in Anki as normal.")) return;
     markPress('b');
     skipCurrent();
   }));

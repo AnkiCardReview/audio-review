@@ -1,4 +1,4 @@
-"""Build the car list: the cards Anki would give you in the chosen decks, in Anki's order,
+"""Build the audio list: the cards Anki would give you in the chosen decks, in Anki's order,
 turned into spoken text, plus what Again and Good do to each one.
 
 Uses only Anki's own Python API, so it runs the same inside Anki (the add-on) and on a
@@ -67,7 +67,7 @@ def build_pack(col: Collection, deck_names: list[str], days_ahead: int = 1, now:
                     continue
                 seen_cards.add(card.id)
                 if kind == "new" and not include_new:
-                    skipped["new card (the car plays reviews)"] = skipped.get("new card (the car plays reviews)", 0) + 1
+                    skipped["new card (audio plays reviews)"] = skipped.get("new card (audio plays reviews)", 0) + 1
                     continue
                 entry = _card_entry(col, card, kind, again, good, block, name, due_day, skipped)
                 if entry is None:
@@ -113,7 +113,7 @@ def build_pack(col: Collection, deck_names: list[str], days_ahead: int = 1, now:
 def whole_deck_cards(col: Collection, deck_names: list[str], include_suspended: bool = False) -> list[dict]:
     """Every card in the decks that works as audio, for making audio ahead, in the order it'll be
     needed: learning cards and reviews by due day, then cards not started yet (in Anki's new-card
-    order; they reach the car once they're reviews), then suspended cards if asked. Only each
+    order; they're played once they're reviews), then suspended cards if asked. Only each
     card's text and audio names; its place in that order is "due_day", as `prepare` expects."""
     today = col.sched.today
     out = []
@@ -128,10 +128,10 @@ def whole_deck_cards(col: Collection, deck_names: list[str], include_suspended: 
             suspended = queue == -1
             if suspended and not include_suspended:
                 continue
-            if "car-review::skip" in tags.lower().split():
+            if {"audio-review::skip", "car-review::skip"} & set(tags.lower().split()):
                 continue
             notetype = col.models.get(mid)
-            if not notetype or notetype["type"] != 1:  # cloze only, as in the car list
+            if not notetype or notetype["type"] != 1:  # cloze only, as in the audio list
                 continue
             fields = flds.split("\x1f")
             spoken = to_speech(fields[0], ord_ + 1, dict(zip([f["name"] for f in notetype["flds"]], fields)))
@@ -290,7 +290,7 @@ def _sort_reviews(col: Collection, cids: list[int], conf: dict, on_day: int) -> 
 
 def _card_entry(col, card, kind, again, good, block, deck_name, due_day, skipped) -> dict | None:
     note = card.note()
-    if note.has_tag("car-review::skip"):  # double-Back in the car: "doesn't work as audio"
+    if note.has_tag("audio-review::skip") or note.has_tag("car-review::skip"):  # ⏮⏮⏮: "doesn't work as audio"
         skipped["marked not audio-friendly"] = skipped.get("marked not audio-friendly", 0) + 1
         return None
     notetype = note.note_type()

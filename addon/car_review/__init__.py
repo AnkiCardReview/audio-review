@@ -1,6 +1,6 @@
-"""Car Review add-on for Anki.
+"""Audio Review add-on for Anki.
 
-This package is also imported outside Anki by the Car Review helper and tools, so the Anki
+This package is also imported outside Anki by the Audio Review helper and tools, so the Anki
 parts only load when Anki's GUI is present.
 """
 

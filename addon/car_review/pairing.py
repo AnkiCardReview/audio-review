@@ -1,4 +1,4 @@
-"""Pairing and end-to-end encryption for the Car Review relay.
+"""Pairing and end-to-end encryption for the Audio Review relay.
 
 One random 32-byte secret (shown once as a QR code) is the only thing a laptop and phone
 share. Everything else is derived from it with HKDF-SHA256, so the relay never sees it:

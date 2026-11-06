@@ -1,4 +1,4 @@
-"""Turn a cloze card into what Car Review says out loud.
+"""Turn a cloze card into what Audio Review says out loud.
 
 Pure Python with no Anki imports, so it can be tested and previewed outside Anki.
 

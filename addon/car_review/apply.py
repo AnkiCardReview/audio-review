@@ -1,4 +1,4 @@
-"""Apply car grades to Anki, exactly as if the buttons had been pressed in Anki.
+"""Apply phone answers to Anki, exactly as if the buttons had been pressed in Anki.
 
 Uses only Anki's own Python API, so it runs the same inside Anki and on a copy of a
 collection (for testing).
@@ -8,12 +8,12 @@ collection (for testing).
 
 Safety rules (see the plan document):
 - Each card's grades go through Anki's normal answer function, oldest first, with the time
-  they were pressed in the car, so FSRS, learning steps, the load balancer, leeches and
+  they were pressed on the phone, so FSRS, learning steps, the load balancer, leeches and
   sibling burying behave exactly as they would in Anki.
-- A card is skipped if it was reviewed anywhere else after the car list was made, if it's
+- A card is skipped if it was reviewed anywhere else after the audio list was made, if it's
   deleted, suspended or buried, or if a review card is no longer due.
 - Grades from an earlier Anki day are only applied when the caller allows it, because Anki
-  would then measure the next interval from today instead of the day of the drive.
+  would then measure the next interval from today instead of the day of the session.
 - Applied grades are recorded in the collection config (which syncs), so no computer ever
   applies the same grade twice.
 - After each answer, the card's new due date is checked against what Anki said that button
@@ -31,7 +31,8 @@ from anki.consts import QUEUE_TYPE_LRN, QUEUE_TYPE_REV, QUEUE_TYPE_DAY_LEARN_REL
 from anki.scheduler.v3 import CardAnswer
 
 LEDGER_KEY = "carReviewApplied"
-SKIP_TAG = "car-review::skip"
+SKIP_TAG = "audio-review::skip"
+OLD_SKIP_TAG = "car-review::skip"  # from before the rename: still left out
 LEDGER_DAYS = 30
 RATINGS = {1: CardAnswer.AGAIN, 3: CardAnswer.GOOD}
 
@@ -39,7 +40,7 @@ RATINGS = {1: CardAnswer.AGAIN, 3: CardAnswer.GOOD}
 @dataclass
 class CardPlan:
     cid: int
-    grades: list[dict]          # this card's car grades, oldest first
+    grades: list[dict]          # this card's phone answers, oldest first
     preview: str = ""           # what the first grade would do, in words
 
 
@@ -119,12 +120,12 @@ def _card_problem(col: Collection, cid: int, grades: list[dict], today: int, led
     if queue < 0:
         return "suspended or buried"
     made_at_ms = min(int(g.get("list", 0)) for g in grades) * 1000
-    # Car answers count as ours, including ones applied earlier (Anki picks grades up during a
-    # drive too, so a car Again can be applied before the Good that followed it).
+    # Phone answers count as ours, including ones applied earlier (Anki picks grades up during a
+    # session too, so a phone Again can be applied before the Good that followed it).
     ours = {g["at"] for g in grades} | {at for key, at in ledger.items() if key.startswith(f"{cid}:")}
     elsewhere = col.db.list("select id from revlog where cid = ? and id > ?", cid, made_at_ms)
     if any(rid not in ours for rid in elsewhere):
-        return "reviewed elsewhere after the car list was made"
+        return "reviewed elsewhere after the audio list was made"
     if queue == QUEUE_TYPE_REV and due > max(g.get("day", today) for g in grades):
         return "no longer due"
     return None
@@ -163,13 +164,13 @@ def _state_days(state) -> int | None:
 
 
 def apply_plan(col: Collection, plan: Plan, allow_late: bool = False) -> Report:
-    """Apply a plan as one undo step ("Apply car grades"). Returns what happened."""
+    """Apply a plan as one undo step ("Apply phone answers"). Returns what happened."""
     report = Report()
     if plan.late_days and not allow_late:
         report.skipped["grades from an earlier day (not allowed)"] = len(plan.cards)
         return report
 
-    undo_point = col.add_custom_undo_entry("Apply car grades")
+    undo_point = col.add_custom_undo_entry("Apply phone answers")
     ledger = _ledger(col)
     today = col.sched.today
 
@@ -180,7 +181,7 @@ def apply_plan(col: Collection, plan: Plan, allow_late: bool = False) -> Report:
                 # and ask Anki what each button does for this card right now.
                 col.sched.get_queued_cards(fetch_limit=1)
                 states = col._backend.get_scheduling_states(item.cid)
-                # Anki only accepts answers for the card at the top of a built queue, and car
+                # Anki only accepts answers for the card at the top of a built queue, and phone
                 # grades come in any order. A no-change card update makes Anki drop the queue,
                 # then the answer is applied with the load-balanced outcome computed above.
                 col.update_card(col.get_card(item.cid))
@@ -192,7 +193,7 @@ def apply_plan(col: Collection, plan: Plan, allow_late: bool = False) -> Report:
                 expected_days = _state_days(answer.new_state)
                 col.sched.answer_card(answer)
                 # Anki keeps only the last 30 undo steps and every answer is one, so fold each
-                # answer into "Apply car grades" right away; otherwise a long drive pushes it out.
+                # answer into "Apply phone answers" right away; otherwise a long session pushes it out.
                 col.merge_undo_entries(undo_point)
                 ledger[_grade_key(g)] = int(g["at"])
                 report.applied["Good" if g["rating"] == 3 else "Again"] += 1
@@ -216,7 +217,7 @@ def apply_plan(col: Collection, plan: Plan, allow_late: bool = False) -> Report:
 
     # Forget ledger entries older than LEDGER_DAYS; the relay deletes grades after 3 days anyway.
     cutoff = (time.time() - LEDGER_DAYS * 86400) * 1000
-    # Undoable, so undoing "Apply car grades" also forgets that they were applied.
+    # Undoable, so undoing "Apply phone answers" also forgets that they were applied.
     col.set_config(LEDGER_KEY, {k: v for k, v in ledger.items() if v >= cutoff}, undoable=True)
     report.changes = col.merge_undo_entries(undo_point)
     report.skipped.update(plan.skipped)

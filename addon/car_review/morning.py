@@ -33,7 +33,7 @@ from pathlib import Path
 from .common import HOME
 
 SETTINGS = HOME / "morning.json"
-TASK_NAME = "Car Review morning list"  # the retired 4:30 am task
+TASK_NAME = "Car Review morning list"  # the retired 4:30 am task (its real name in Windows: keep)
 EARLY_IN_THE_DAY = 30 * 60  # the next day's list is as Anki would make it this long after the rollover
 
 
@@ -45,7 +45,7 @@ def save_settings(**fields) -> None:
 
 def _settings() -> dict:
     if not SETTINGS.exists():
-        raise RuntimeError("Car Review hasn't sent a list from Anki yet, so it doesn't know your decks.")
+        raise RuntimeError("Audio Review hasn't sent a list from Anki yet, so it doesn't know your decks.")
     return json.loads(SETTINGS.read_text())
 
 
@@ -69,7 +69,7 @@ def _open_copy(source: Path, tmp: str, shift_days: int = 0):
     try:
         from anki.collection import Collection  # Anki's own engine, same version as your Anki
     except ImportError as err:
-        raise RuntimeError("The next day's list needs Anki's engine in Car Review's Python.") from err
+        raise RuntimeError("The next day's list needs Anki's engine in Audio Review's Python.") from err
     path = Path(tmp) / "collection.anki2"
     for _attempt in range(10):
         before = _stamp(source)

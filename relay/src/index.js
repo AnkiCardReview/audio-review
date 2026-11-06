@@ -1,4 +1,4 @@
-// Car Review relay: a dumb, encrypted mailbox between a user's laptop and phone.
+// Audio Review relay: a dumb, encrypted mailbox between a user's laptop and phone.
 //
 // Everything stored here is encrypted on the user's devices before upload, so the relay only
 // ever holds scrambled bytes. A "box" is named by a one-way hash of the user's pairing secret.

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Car Review Button Test</title>
+<title>Audio Review Button Test</title>
 <style>
   :root {
     --bg: #0f1115; --panel: #1a1d24; --text: #eef0f4; --muted: #9aa1ad;
@@ -47,8 +47,8 @@
 </head>
 <body>
 <main>
-  <h1>Car Review · Button Test</h1>
-  <p><a href="./" style="color:var(--accent)">← Car Review app</a> · <a href="voice-test.html" style="color:var(--accent)">Phone voice speed test</a></p>
+  <h1>Audio Review · Button Test</h1>
+  <p><a href="./" style="color:var(--accent)">← Audio Review app</a> · <a href="voice-test.html" style="color:var(--accent)">Phone voice speed test</a></p>
   <p>This page checks whether your iPhone sends Forward and Back to a web page the same way it does for Spotify. There are no cards here. <b>Only do the car part while parked.</b></p>
 
   <div class="panel">
@@ -110,7 +110,7 @@
     <li><b>After silence:</b> leave it alone for 2+ minutes (watch "Quiet for"), then press again. Does it still respond?</li>
     <li><b>Voice while locked:</b> tap "Read it in 10 s" and lock the phone. Do you hear the sample card? Then switch "How it talks" to Recorded clips and try 1–4 again.</li>
     <li><b>Holding:</b> tick "Also listen for holding a button", then press and hold ⏭ or ⏮. Does anything new appear in the log? (Holding may change what the lock screen shows.)</li>
-    <li><b>Car (parked):</b> connect to the Highlander, set it to Bluetooth Audio, start this page and press the steering-wheel buttons. Does the car screen show "Car Review"?</li>
+    <li><b>Car (parked):</b> connect to the car's Bluetooth, set it to Bluetooth Audio, start this page and press the steering-wheel buttons. Does the car screen show "Audio Review"?</li>
   </ol>
   <p>When you're done, tap <b>Copy results</b> and paste them to Claude.</p>
 
@@ -271,7 +271,7 @@
 
   function setTitle(text) {
     if (!ms) return;
-    ms.metadata = new MediaMetadata({ title: text, artist: 'Car Review', album: 'Button test' });
+    ms.metadata = new MediaMetadata({ title: text, artist: 'Audio Review', album: 'Button test' });
   }
 
   function note(name, detail = '') {
@@ -333,7 +333,7 @@
     started = true;
     playSilence();
     registerHandlers();
-    setTitle('Car Review ready');
+    setTitle('Audio Review ready');
     $('start').classList.add('hidden');
     $('live').classList.remove('hidden');
     lastPress = Date.now();
@@ -384,7 +384,7 @@
   });
 
   $('copy').addEventListener('click', async () => {
-    const text = ['Car Review button test', ...entries].join('\n');
+    const text = ['Audio Review button test', ...entries].join('\n');
     try { await navigator.clipboard.writeText(text); $('copy').textContent = 'Copied ✓'; }
     catch { $('copy').textContent = 'Copy failed — select the log text instead'; }
     setTimeout(() => { $('copy').textContent = 'Copy results'; }, 2500);

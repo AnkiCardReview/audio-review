@@ -1,6 +1,6 @@
 """Make Kokoro voice samples for the test page and time how fast this computer generates speech.
 
-Run with the Car Review Python environment:
+Run with the Audio Review Python environment:
     python tools/make_samples.py
 
 Writes, for each voice, docs/samples/<voice>-<card>-q.mp3 (the question),
@@ -39,7 +39,7 @@ CARDS = [
 ]
 
 # lang_code 'a' = American English, 'b' = British English.
-VOICES = {"af_heart": "a"}  # the voice chosen for Car Review
+VOICES = {"af_heart": "a"}  # the voice chosen for Audio Review
 
 
 def speak(pipeline: KPipeline, voice: str, text: str) -> np.ndarray:

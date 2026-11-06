@@ -1,9 +1,9 @@
-"""The Car Review bar on Anki's main screen (under the deck list).
+"""The Audio Review bar on Anki's main screen (under the deck list).
 
 It shows what the laptop last sent to the phone and what the phone has picked up, with buttons
-for the things you'd otherwise find in Tools ▸ Car Review. Everything it shows comes from files
+for the things you'd otherwise find in Tools ▸ Audio Review. Everything it shows comes from files
 the helper already writes (status.json, phone.json): the bar itself never contacts the relay.
-"Check phone" does, once, when pressed (the same request as checking for car answers).
+"Check phone" does, once, when pressed (the same request as checking for phone answers).
 
 While the deck list is on screen, a light timer looks at those files' times every few seconds
 and redraws the bar in place when one changes, so a send shows its progress and result.
@@ -67,7 +67,7 @@ def _sent_line() -> str:
     ready, total = s.get("ready", 0), s.get("total", 0)
     made = s.get("made", 0)
     if not s:
-        return "<b>Nothing sent yet.</b> Press Send to Car, or sync or close Anki."
+        return "<b>Nothing sent yet.</b> Press Send to phone, or sync or close Anki."
     if state == "error":
         return (f"<b class=crb-warn>⚠ The last send stopped</b> ({_when(s.get('updated', 0))}): "
                 f"{html.escape(str(s.get('error', ''))[:160])}")
@@ -80,7 +80,7 @@ def _sent_line() -> str:
         return (f"<b>Sending now…</b> {ready:,} of {total:,} cards ready"
                 + (f", {made:,} new clips made" if made else ""))
     if state == "sending":  # the helper stopped without saying (closed, crashed)
-        return f"<b>The last send didn't finish</b> ({_when(s.get('updated', 0))}). Press Send to Car."
+        return f"<b>The last send didn't finish</b> ({_when(s.get('updated', 0))}). Press Send to phone."
     unvoiced = s.get("unvoiced", 0)
     line = (f"<b>{'Up to date' if s.get('unchanged') else 'Sent'} {_when(s.get('updated', 0))}</b>: "
             f"{ready:,} of {total:,} cards ready on the phone")
@@ -102,11 +102,11 @@ def _phone_line() -> str:
     if p.get("waiting"):
         mb = p.get("waiting_bytes", 0) / 1e6
         parts.append(f"<b>hasn't downloaded {p['waiting']} audio file{'s' if p['waiting'] != 1 else ''} yet</b> "
-                     f"({mb:.0f} MB). Open Car Review on the phone and tap Sync")
+                     f"({mb:.0f} MB). Open Audio Review on the phone and tap Sync")
     else:
         parts.append("<b>has everything that was sent</b>")
     if p.get("grades"):
-        parts.append(f"<b>car answers waiting</b> (from {_when(p.get('grades_at', 0))}): Check phone applies them")
+        parts.append(f"<b>phone answers waiting</b> (from {_when(p.get('grades_at', 0))}): Check phone applies them")
     if p.get("have_at"):
         parts.append(f"last took new audio {_when(p['have_at'])}")
     return "Phone " + "; ".join(parts) + f". <span class=crb-dim>(Checked {_when(p.get('checked', 0))}.)</span>"
@@ -119,19 +119,19 @@ def _button(action: str, label: str, title: str) -> str:
 
 def bar_html() -> str:
     if not _setting("decks"):
-        body = "Choose which decks to hear in the car to get started."
-        buttons = _button("settings", "Set up Car Review…", "Choose decks, set up the voice and pair your phone")
+        body = "Choose which decks to hear as audio to get started."
+        buttons = _button("settings", "Set up Audio Review…", "Choose decks, set up the voice and pair your phone")
     elif not PAIRING.exists():
         body = "No phone is paired with this computer yet."
         buttons = _button("pair", "Pair phone…", "Show the QR code to scan with your iPhone")
     else:
         body = f"<div>{_sent_line()}</div><div>{_phone_line()}</div>"
-        buttons = (_button("send", "Send to Car", "Send today's and tomorrow's cards that already have audio")
+        buttons = (_button("send", "Send to phone", "Send today's and tomorrow's cards that already have audio")
                    + _button("prepare", "Make audio and send",
                              "Make the missing audio for the coming days (while plugged in), then send")
                    + _button("check", "Check phone",
-                             "See what the phone has downloaded, and pick up its car answers")
-                   + _button("settings", "Settings…", "Car Review settings"))
+                             "See what the phone has downloaded, and pick up its phone answers")
+                   + _button("settings", "Settings…", "Audio Review settings"))
     return f"""
 <div id="{BAR_ID}">
 <style>
@@ -143,7 +143,7 @@ def bar_html() -> str:
 #{BAR_ID} .crb-buttons {{ margin-top: .55em; display: flex; flex-wrap: wrap; gap: .4em; }}
 #{BAR_ID} .crb-hint {{ margin-top: .5em; font-size: .85em; opacity: .65; }}
 </style>
-<div class="crb-title">🚗 Car Review</div>
+<div class="crb-title">🎧 Audio Review</div>
 {body}
 <div class="crb-buttons">{buttons}</div>
 <div class="crb-hint">Sends by itself when Anki syncs, opens or closes (only if your cards changed).

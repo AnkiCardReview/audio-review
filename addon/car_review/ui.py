@@ -1,4 +1,4 @@
-"""A small window showing what the Car Review helper is doing, so it's never an invisible
+"""A small window showing what the Audio Review helper is doing, so it's never an invisible
 background process: progress, time left, an activity log, and Pause / Stop.
 
 The work runs on a background thread; the window runs on the main thread and reads shared
@@ -304,7 +304,7 @@ def run_with_window(progress: Progress, work) -> None:
     def refresh(once: bool = False) -> None:
         nonlocal closing_at, ended
         root.title(progress.title)
-        heading.config(text=progress.title.removeprefix("Car Review: ").capitalize())
+        heading.config(text=progress.title.removeprefix("Audio Review: ").capitalize())
         add_events()
         stats = progress.stats
         tile_values["made"].config(text=f"{stats['made']:,}")

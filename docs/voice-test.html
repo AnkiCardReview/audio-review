@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Car Review Voice Test</title>
+<title>Audio Review Voice Test</title>
 <style>
   :root {
     --bg: #0f1115; --panel: #1a1d24; --text: #eef0f4; --muted: #9aa1ad;
@@ -41,7 +41,7 @@
 </head>
 <body>
 <main>
-  <h1>Car Review · Phone Voice Test</h1>
+  <h1>Audio Review · Phone Voice Test</h1>
   <p>Can your iPhone make the natural voice (Heart) itself? This downloads the voice once (on Wi-Fi), makes 4 sample cards on the phone and times it. Keep this page open with the screen on while it runs. <a href="test.html">← Button test</a></p>
 
   <div class="panel">
@@ -213,7 +213,7 @@
   });
 
   $('copy').addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText(['Car Review phone voice test', $('log').textContent].join('\n')); $('copy').textContent = 'Copied ✓'; }
+    try { await navigator.clipboard.writeText(['Audio Review phone voice test', $('log').textContent].join('\n')); $('copy').textContent = 'Copied ✓'; }
     catch { $('copy').textContent = 'Copy failed — select the log text instead'; }
     setTimeout(() => { $('copy').textContent = 'Copy results'; }, 2500);
   });

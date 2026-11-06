@@ -1,4 +1,4 @@
-"""Speech preview: show what Car Review would say for your real due cards.
+"""Speech preview: show what Audio Review would say for your real due cards.
 
 Reads a temporary copy of your Anki collection (never the original) and writes
 local/speech-preview.html, which is kept out of git because it contains your card text.
@@ -131,7 +131,7 @@ def render(results, sample, kept, skips, changes, acronyms) -> str:
     skip_list = "".join(f"<li>{e(k)}: {v}</li>" for k, v in skips.most_common())
     change_list = "".join(f"<li>{e(k)}: {v} cards</li>" for k, v in changes.most_common())
     acro = ", ".join(f"{e(k)} ({v})" for k, v in acronyms.most_common(40))
-    return f"""<!doctype html><html><head><meta charset="utf-8"><title>Car Review speech preview</title>
+    return f"""<!doctype html><html><head><meta charset="utf-8"><title>Audio Review speech preview</title>
 <style>
 :root {{ --bg:#fff; --text:#1d1f23; --muted:#667; --line:#e3e5ea; --mark:#fff2a8; --blank:#dbe8ff; --skip:#c0392b; }}
 @media (prefers-color-scheme: dark) {{ :root {{ --bg:#111317; --text:#e9ebef; --muted:#9aa1ad; --line:#2a2f3a; --mark:#5a4d00; --blank:#1d3768; --skip:#ff7a6b; }} }}
@@ -142,9 +142,9 @@ mark {{ background: var(--mark); color: inherit; }} .blank {{ background: var(--
 .skip {{ color: var(--skip); font-weight: 600; }} .tag {{ font-size: 11px; border: 1px solid var(--line); border-radius: 10px; padding: 0 6px; color: var(--muted); }}
 img {{ max-width: 200px; }}
 </style></head><body>
-<h1>Car Review speech preview</h1>
+<h1>Audio Review speech preview</h1>
 <p>{len(results)} cloze cards due in the selected decks · <b>{kept} kept for audio ({100 * kept / max(1, len(results)):.1f}%)</b>.
-Left: the card as written (this card's answer highlighted). Right: what Car Review would say; the highlighted word is how the blank is spoken.</p>
+Left: the card as written (this card's answer highlighted). Right: what Audio Review would say; the highlighted word is how the blank is spoken.</p>
 <h3>Skipped</h3><ul>{skip_list or "<li>none</li>"}</ul>
 <h3>Conversions used</h3><ul>{change_list or "<li>none</li>"}</ul>
 <h3>Abbreviations left as letters (check these sound right)</h3><p>{acro}</p>

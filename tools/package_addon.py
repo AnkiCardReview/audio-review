@@ -1,6 +1,6 @@
 """Build the add-on file for AnkiWeb or for installing from a file.
 
-    python tools/package_addon.py            -> dist/car_review.ankiaddon
+    python tools/package_addon.py            -> dist/audio_review.ankiaddon
 
 The .ankiaddon file is a zip of addon/car_review (without caches or your meta.json, which
 holds your own settings). It includes a manifest.json so double-clicking the file installs it
@@ -18,7 +18,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / "addon" / "car_review"
-OUT = ROOT / "dist" / "car_review.ankiaddon"
+OUT = ROOT / "dist" / "audio_review.ankiaddon"
 VERSION = "0.1.0"
 MIN_POINT_VERSION = 241100  # Anki 24.11 (tested with 26.09)
 SKIP_DIRS = {"__pycache__"}
@@ -49,11 +49,11 @@ def files() -> list[Path]:
 def main() -> None:
     manifest = {
         "package": "car_review",
-        "name": "Car Review: hands-free reviews while you drive",
+        "name": "Audio Review: hear your cards, hands-free",
         "mod": commit_time(),
         "min_point_version": MIN_POINT_VERSION,
         "human_version": VERSION,
-        "homepage": "https://github.com/AnkiCardReview/car-review",
+        "homepage": "https://github.com/AnkiCardReview/audio-review",
     }
     OUT.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(OUT, "w", zipfile.ZIP_DEFLATED) as z:

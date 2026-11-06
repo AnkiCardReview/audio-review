@@ -1,6 +1,6 @@
-"""Car Review background helper: makes missing audio, encrypts, and uploads the car list.
+"""Audio Review background helper: makes missing audio, encrypts, and uploads the audio list.
 
-Runs in the Car Review Python environment (it needs the Kokoro voice and `cryptography`),
+Runs in the Audio Review Python environment (it needs the Kokoro voice and `cryptography`),
 started by the add-on so it can keep going after Anki closes:
 
     python -m car_review.helper send   --pack pack.json
@@ -412,7 +412,7 @@ def next_day(pack: dict) -> dict | None:
 
 
 def send(pack_path: Path, progress: Progress) -> None:
-    """Upload the car list. Voices missing cards first if the pack asks for it (and only while
+    """Upload the audio list. Voices missing cards first if the pack asks for it (and only while
     plugged in); otherwise sends just the cards that already have audio. If a newer pack is
     saved while this runs, it switches to the newer one."""
     if not PAIRING.exists():
@@ -423,10 +423,10 @@ def send(pack_path: Path, progress: Progress) -> None:
         else:
             progress.auto_close = True
             progress.finish("No phone is paired with this computer, so nothing was sent "
-                            "(Tools ▸ Car Review ▸ Pair phone).")
+                            "(Tools ▸ Audio Review ▸ Pair phone).")
         return
     if not take_lock():
-        progress.finish("Another Car Review send is already running; it will pick up this newer list.")
+        progress.finish("Another Audio Review send is already running; it will pick up this newer list.")
         return
     pairing = load_pairing()
     relay = Relay(pairing)
@@ -497,7 +497,7 @@ def send(pack_path: Path, progress: Progress) -> None:
             cards = pack["cards"] + extra
             # Once asked to make audio (Prepare audio), a newer quick list (closing Anki) keeps it going.
             voicing = voicing or pack.get("voice_missing", True)
-            progress.title = "Car Review: making audio and sending" if voicing else "Car Review: sending to your car"
+            progress.title = "Audio Review: making audio and sending" if voicing else "Audio Review: sending to your phone"
 
             # The few spoken cues first: made when voicing, sent whenever they're ready.
             for cue in announce_clips(pack):
@@ -605,11 +605,11 @@ def send(pack_path: Path, progress: Progress) -> None:
         message = f"{len(ready):,} cards ready on your phone" + (f" ({made:,} new clips made)" if made else "") + "."
         if outbox.full:
             message += (" The rest of the audio goes once your phone has downloaded what's waiting "
-                        "(open Car Review and sync), at your next sync or close of Anki.")
+                        "(open Audio Review and sync), at your next sync or close of Anki.")
         elif unvoiced:
             message += (f" {unvoiced:,} cards have no audio yet: plug in and use "
-                        "Tools ▸ Car Review ▸ Prepare audio.")
-        progress.auto_close = True  # the result is also in Tools ▸ Car Review ▸ Status
+                        "Tools ▸ Audio Review ▸ Prepare audio.")
+        progress.auto_close = True  # the result is also in Tools ▸ Audio Review ▸ Status
         progress.finish(message + (" Stopped early." if progress.stopped else " Done ✓"))
     except Exception as err:
         write_status(state="error", error=str(err), detail=traceback.format_exc()[-2000:])
@@ -692,7 +692,7 @@ def main() -> None:
         sys.stderr = sys.stderr or log
     ap = argparse.ArgumentParser(prog="car_review.helper")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    s = sub.add_parser("send", help="make missing audio, encrypt and upload a car list")
+    s = sub.add_parser("send", help="make missing audio, encrypt and upload an audio list")
     s.add_argument("--pack", type=Path, required=True)
     s.add_argument("--no-window", action="store_true", help="don't show the progress window")
     pr = sub.add_parser("prepare", help="make audio ahead of time for a list (no upload)")
@@ -715,7 +715,7 @@ def main() -> None:
     d.add_argument("names", nargs="+")
     args = ap.parse_args()
     if args.cmd in ("send", "prepare"):
-        title = "Car Review: sending to your car" if args.cmd == "send" else "Car Review: making audio ahead"
+        title = "Audio Review: sending to your phone" if args.cmd == "send" else "Audio Review: making audio ahead"
         progress = Progress(title)
         work = (lambda p: send(args.pack, p)) if args.cmd == "send" else (lambda p: prepare(args.pack, p))
         if args.no_window:
@@ -736,7 +736,7 @@ def main() -> None:
     elif args.cmd == "voice-check":
         voice = Voice(gpu=True if args.gpu else None)
         started = time.time()
-        clip = voice.mp3("Car Review is ready. Drive safely.")
+        clip = voice.mp3("Audio Review is ready.")
         result = {"engine": voice.engine, "device": voice.device, "bytes": len(clip), "secs": round(time.time() - started, 1)}
         if args.gpu:  # a few more clips, timed, once the voice is loaded
             started = time.time()

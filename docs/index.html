@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Car Review">
-<title>Car Review</title>
+<meta name="apple-mobile-web-app-title" content="Audio Review">
+<title>Audio Review</title>
 <style>
   :root {
     --bg: #0d0f13; --panel: #171a21; --panel2: #1f232c; --text: #eef0f4; --muted: #98a0ad;
@@ -82,7 +82,7 @@
   button.sync.busy { background: #17233d; border-color: #2b4a85; color: #a9c4ff; }
   button.sync.off { background: #3a2f12; border-color: #6b5420; color: var(--warnc); }
 
-  /* Session screen: thumb-sized buttons at the bottom, for the car (parked) or walking */
+  /* Session screen: thumb-sized buttons at the bottom, for walking, the gym, or a parked car */
   #drive { display: flex; flex-direction: column; min-height: calc(100dvh - max(16px, env(safe-area-inset-top)) - max(24px, env(safe-area-inset-bottom))); }
   .d-top { display: flex; align-items: center; gap: 10px; }
   .d-top #d-deck { flex: 1; color: var(--muted); font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -119,7 +119,7 @@
   .zones .z-hint { position: absolute; left: 0; right: 0; bottom: 16px; padding: 0; text-align: center; font-size: 13px; color: var(--muted); }
 
   /* Pocket lock: hold 🔒 to black out the screen and ignore touches; hold the lock to unlock.
-     Remotes, headphones and car buttons keep working. */
+     Remotes, headphones and steering-wheel buttons keep working. */
   .holdable, .lock { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: none; }
   .d-top #d-lock { padding: 8px 12px; font-size: 17px; background-image: linear-gradient(var(--accent), var(--accent));
     background-repeat: no-repeat; background-size: 0% 100%; transition: background-size .15s; }
@@ -161,13 +161,13 @@
 <main>
   <!-- Not paired yet -->
   <section id="unpaired" class="hidden">
-    <h1>Car Review</h1>
-    <p>Hands-free flashcard reviews while you drive. This phone reads your due Anki cards out loud, and you answer with your car's steering-wheel buttons.</p>
+    <h1>Audio Review</h1>
+    <p>Your due Anki cards, read out loud. Review hands-free on a walk, at the gym, doing chores or driving: answer with your headphones, a Bluetooth remote, the screen, or your car's steering-wheel buttons.</p>
     <div class="panel">
       <p><b style="color: var(--text)">To connect this phone</b></p>
       <ol class="steps">
-        <li>On your computer, install the <b>Car Review</b> add-on in Anki (<a href="https://github.com/AnkiCardReview/car-review#readme">how</a>).</li>
-        <li>In Anki: <b>Tools ▸ Car Review ▸ Pair phone</b>. A QR code appears.</li>
+        <li>On your computer, install the <b>Audio Review</b> add-on in Anki (<a href="https://github.com/AnkiCardReview/audio-review#readme">how</a>).</li>
+        <li>In Anki: <b>Tools ▸ Audio Review ▸ Pair phone</b>. A QR code appears.</li>
         <li>Point this phone's <b>Camera</b> at the code and tap the link.</li>
       </ol>
       <p>No account or app store needed.</p>
@@ -176,12 +176,12 @@
       <p><b style="color: var(--text)">Opened from your Home Screen and seeing this?</b></p>
       <p>The icon was added before pairing. Delete the icon, scan the QR code again, and add to the Home Screen from the page that opens.</p>
     </div>
-    <p class="links"><a href="https://github.com/AnkiCardReview/car-review/blob/main/help/how-it-works.md">How it works</a> · <a href="https://github.com/AnkiCardReview/car-review/blob/main/PRIVACY.md">Privacy</a> · <a href="test.html#practice">Try it with sample cards</a></p>
+    <p class="links"><a href="https://github.com/AnkiCardReview/audio-review/blob/main/help/how-it-works.md">How it works</a> · <a href="https://github.com/AnkiCardReview/audio-review/blob/main/PRIVACY.md">Privacy</a> · <a href="test.html#practice">Try it with sample cards</a></p>
   </section>
 
   <!-- First run in the app: how the buttons work, and safety -->
   <section id="intro" class="hidden">
-    <h1>Before your first drive</h1>
+    <h1>Before you start</h1>
     <div class="panel">
       <p><b style="color: var(--text)">How to answer</b></p>
       <div class="stat"><span>⏭ Next track</span><b>Hear the answer</b></div>
@@ -190,32 +190,32 @@
       <div class="stat"><span>⏮ before the answer</span><b>Repeat the question</b></div>
       <div class="stat"><span>⏮⏮ on a question</span><b>Go back a card (from its question)</b></div>
       <div class="stat"><span>⏮⏮⏮ on a question</span><b>Skip: doesn't work as audio</b></div>
-      <p>Works with steering-wheel buttons, AirPods (double-tap = ⏭, triple-tap = ⏮), most Bluetooth headphones, and the ⏮ ⏭ controls on the lock screen. Walking or on a treadmill, you can also use the big buttons on the screen. Nothing plays on its own: after a question it waits as long as you like. After you grade a card the next question starts straight away, and the voice says when a deck is done.</p>
+      <p>Works with AirPods (double-tap = ⏭, triple-tap = ⏮), most Bluetooth headphones, the ⏮ ⏭ controls on the lock screen, and steering-wheel buttons. With the screen on you can also use walking mode's big buttons or a Bluetooth remote (Remote keys, on the home screen). Nothing plays on its own: after a question it waits as long as you like. After you grade a card the next question starts straight away, and the voice says when a deck is done.</p>
     </div>
     <div class="panel">
-      <p><b style="color: var(--text)">Each drive</b></p>
+      <p><b style="color: var(--text)">Each session</b></p>
       <ol class="steps">
-        <li>Open Car Review before you leave (on Wi-Fi if you can) so it downloads the latest cards.</li>
-        <li>Connect to the car's Bluetooth. <b>Close Spotify or other music apps</b>, or they may take over the buttons.</li>
-        <li>Tap <b>Start</b>, lock the phone and put it away. Then drive.</li>
-        <li>When you arrive, open Anki on your computer. It shows your car answers and applies them.</li>
+        <li>Open Audio Review before you go (on Wi-Fi if you can) so it downloads the latest cards.</li>
+        <li>Connect your headphones or the car's Bluetooth. <b>Close Spotify or other music apps</b>, or they may take over the buttons.</li>
+        <li>Tap <b>Start</b>, then lock the phone or, for a remote, hold 🔒 to lock the screen, and put it away.</li>
+        <li>Tap <b>Stop</b> when you're done. Anki on your computer picks up your answers at its next sync and applies them.</li>
       </ol>
     </div>
     <div class="panel" style="border-color: #f5c451">
-      <p><b class="warn">Safety</b></p>
+      <p><b class="warn">Safety in the car</b></p>
       <p>Set everything up and tap Start <b>before</b> you move. While driving, use only the steering-wheel buttons, and never look at or touch the phone. If a card needs thought, let it wait; the road comes first. Follow your local laws on phone use while driving.</p>
     </div>
     <button id="intro-done" class="primary">I understand</button>
-    <p class="links"><a href="test.html#practice">Practise with 4 sample cards first (parked)</a></p>
+    <p class="links"><a href="test.html#practice">Practise with 4 sample cards first</a></p>
   </section>
 
   <!-- Home -->
   <section id="home" class="hidden">
-    <h1>Car Review</h1>
+    <h1>Audio Review</h1>
     <div id="add-home" class="panel hidden" style="border-color: var(--accent)">
-      <p><b style="color: var(--text)">Paired ✓ Next: add Car Review to your Home Screen.</b></p>
-      <p id="add-home-ios">In Safari, tap Share (□↑) ▸ <b>Add to Home Screen</b> ▸ Add. Then open Car Review from your Home Screen: it pairs itself and downloads your cards there. You can close this Safari tab afterwards.</p>
-      <p id="add-home-android" class="hidden">In Chrome, tap ⋮ ▸ <b>Add to Home screen</b> (or <b>Install app</b>) ▸ Add. Then open Car Review from your Home Screen.</p>
+      <p><b style="color: var(--text)">Paired ✓ Next: add Audio Review to your Home Screen.</b></p>
+      <p id="add-home-ios">In Safari, tap Share (□↑) ▸ <b>Add to Home Screen</b> ▸ Add. Then open Audio Review from your Home Screen: it pairs itself and downloads your cards there. You can close this Safari tab afterwards.</p>
+      <p id="add-home-android" class="hidden">In Chrome, tap ⋮ ▸ <b>Add to Home screen</b> (or <b>Install app</b>) ▸ Add. Then open Audio Review from your Home Screen.</p>
     </div>
     <div class="panel hero">
       <div class="num" id="h-due">–</div>
@@ -243,13 +243,13 @@
       <div id="t-sessions"></div>
       <h3 id="t-days-head" class="hidden">Past days</h3>
       <div id="t-days"></div>
-      <p class="hint">More in Anki: Tools ▸ Car Review ▸ Car stats (car vs Anki, mature cards, past drives).</p>
+      <p class="hint">More in Anki: Tools ▸ Audio Review ▸ Audio stats (audio vs Anki, mature cards, past sessions).</p>
     </div>
     <div class="panel">
       <h2>Playback</h2>
       <label for="speed">Voice speed: <span id="speed-val">1.2</span>×</label>
       <input id="speed" type="range" min="0.8" max="2.0" step="0.1" value="1.2">
-      <label><input id="show-text" type="checkbox"> Show card text on screen (parked, or walking)</label>
+      <label><input id="show-text" type="checkbox"> Show card text on screen</label>
       <label><input id="keep-awake" type="checkbox"> Keep the screen on during a session</label>
       <label><input id="walk-mode" type="checkbox"> Walking mode: tap the left or right half of the screen, swipe right to go back a card</label>
       <label><input id="auto-answer" type="checkbox"> Play the answer by itself after
@@ -283,14 +283,14 @@
       <summary>More</summary>
       <p class="hint">App version <b id="app-version"></b></p>
       <button id="show-intro">How the buttons work</button>
-      <p class="links"><a href="https://github.com/AnkiCardReview/car-review/blob/main/help/troubleshooting.md">Help &amp; troubleshooting</a> · <a href="https://github.com/AnkiCardReview/car-review/blob/main/PRIVACY.md">Privacy</a> · <a href="https://github.com/AnkiCardReview/car-review/blob/main/TERMS.md">Terms</a></p>
+      <p class="links"><a href="https://github.com/AnkiCardReview/audio-review/blob/main/help/troubleshooting.md">Help &amp; troubleshooting</a> · <a href="https://github.com/AnkiCardReview/audio-review/blob/main/PRIVACY.md">Privacy</a> · <a href="https://github.com/AnkiCardReview/audio-review/blob/main/TERMS.md">Terms</a></p>
       <button id="clear-today">Reset today's progress on this phone</button>
       <button id="unpair">Unpair this phone</button>
       <div id="log"></div>
     </details>
   </section>
 
-  <!-- A session: in the car, or on screen -->
+  <!-- A session: headphones, a remote, the screen, or a car -->
   <section id="drive" class="hidden">
     <div class="d-top"><span id="d-deck">&nbsp;</span><button id="d-slower" aria-label="Slower">−</button><span id="d-speed" class="d-speed">1.2×</span><button id="d-faster" aria-label="Faster">+</button><button id="d-lock" class="holdable" aria-label="Hold to lock the screen">🔒</button><button id="d-stop">Stop</button></div>
     <div class="bar"><i id="d-bar"></i></div>
@@ -324,9 +324,9 @@
       </div>
       <p id="lock-hint" class="lock-hint">Hold the lock to unlock</p>
     </div>
-    <p class="hint d-help">Hold 🔒 to lock the screen for your pocket: your remote and headphone buttons keep working.<br>Car buttons or headphones: ⏭ answer, ⏭ again = Good, ⏮ = Again.<br>On a question: ⏮ repeats it, ⏮⏮ goes back a card, ⏮⏮⏮ skips it.<br>Press about once a second; most cars drop faster presses.</p>
+    <p class="hint d-help">Hold 🔒 to lock the screen for your pocket: your remote and headphone buttons keep working.<br>Headphones or steering wheel: ⏭ answer, ⏭ again = Good, ⏮ = Again.<br>On a question: ⏮ repeats it, ⏮⏮ goes back a card, ⏮⏮⏮ skips it.<br>In a car, press about once a second; most cars drop faster presses.</p>
   </section>
 </main>
-<script src="app.js?v=23"></script>
+<script src="app.js?v=24"></script>
 </body>
 </html>

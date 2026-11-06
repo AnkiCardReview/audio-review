@@ -1,7 +1,7 @@
-"""Car stats: how your drives went (Tools ▸ Car Review ▸ Car stats).
+"""Audio stats: how your sessions went (Tools ▸ Audio Review ▸ Audio stats).
 
-Car answers are found through the applied-grades record (apply.LEDGER_KEY): each one is saved
-in Anki's review log with the exact time it was pressed in the car, and a review's id is that
+Phone answers are found through the applied-grades record (apply.LEDGER_KEY): each one is saved
+in Anki's review log with the exact time it was pressed on the phone, and a review's id is that
 time. The record keeps 30 days, so these stats cover the last 30 days.
 
 The clip timings (how long each clip took to start, how long it played, how long you took to
@@ -23,7 +23,7 @@ from pathlib import Path
 from .apply import LEDGER_KEY
 from .common import HOME
 
-DRIVE_GAP_MS = 45 * 60 * 1000  # car answers further apart than this belong to different drives
+DRIVE_GAP_MS = 45 * 60 * 1000  # phone answers further apart than this belong to different drives
 MATURE_DAYS = 21
 TIMING_DIR = HOME / "timing"
 
@@ -57,7 +57,7 @@ def _pct(part: int, whole: int) -> str:
 
 
 def _rows(col, decks: list[str], since_ms: int) -> list[tuple]:
-    """(id, cid, ease, type, lastIvl, top-level deck) for answers in the car decks since `since_ms`."""
+    """(id, cid, ease, type, lastIvl, top-level deck) for answers in the audio decks since `since_ms`."""
     names = {}
     for d in col.decks.all_names_and_ids():
         top = next((c for c in decks if d.name == c or d.name.startswith(c + "::")), None)
@@ -76,7 +76,7 @@ def _rows(col, decks: list[str], since_ms: int) -> list[tuple]:
 
 
 def drives(rows: list[tuple], car_ids: set[int]) -> list[list[tuple]]:
-    """Car answers grouped into drives, oldest first."""
+    """Phone answers grouped into drives, oldest first."""
     groups: list[list[tuple]] = []
     for row in sorted(r for r in rows if r[0] in car_ids):
         if groups and row[0] - groups[-1][-1][0] <= DRIVE_GAP_MS:
@@ -151,12 +151,12 @@ def report_html(col, decks: list[str], now_ms: int | None = None) -> str:
 
     groups = drives(rows, car_ids)
     if not groups:
-        parts.append("<p>No car answers in Anki yet. After a drive, open Anki: your car answers are applied "
+        parts.append("<p>No phone answers in Anki yet. After a session, open Anki: your phone answers are applied "
                      "and show up here.</p>")
         return "".join(parts)
 
     # Recent drives
-    parts.append("<h3>Your drives</h3><table><tr><th>Drive</th><th>Time</th><th>Answers</th><th>Cards</th>"
+    parts.append("<h3>Your sessions</h3><table><tr><th>Session</th><th>Time</th><th>Answers</th><th>Cards</th>"
                  "<th>Reviews right</th><th>Mature right</th><th>Per answer</th></tr>")
     for g in reversed(groups[-10:]):
         t = Tally()
@@ -170,13 +170,13 @@ def report_html(col, decks: list[str], now_ms: int | None = None) -> str:
                      f"<td>{_pct(t.mature_passed, t.mature)} ({t.mature_passed}/{t.mature})</td><td>{per}</td></tr>")
     parts.append("</table>")
 
-    # Car vs Anki, per deck
+    # Audio vs Anki, per deck
     for title, days in (("Last 7 days", 7), ("Last 30 days", 30)):
         cutoff = now_ms - days * 86400 * 1000
-        parts.append(f"<h3>{title}: car or Anki</h3><table><tr><th>Deck</th><th>Where</th><th>Reviews</th>"
+        parts.append(f"<h3>{title}: audio or Anki</h3><table><tr><th>Deck</th><th>Where</th><th>Reviews</th>"
                      "<th>Right</th><th>Mature right</th><th>Young right</th></tr>")
         for deck in decks:
-            for where, in_car in (("Car", True), ("Anki", False)):
+            for where, in_car in (("Audio", True), ("Anki", False)):
                 t = Tally()
                 for rid, cid, ease, kind, last_ivl, top in rows:
                     if top == deck and rid >= cutoff and (rid in car_ids) == in_car:
@@ -187,13 +187,13 @@ def report_html(col, decks: list[str], now_ms: int | None = None) -> str:
                              f"<td>{_pct(young_ok, young)} ({young})</td></tr>")
         parts.append("</table>")
     parts.append("<p>“Right” counts reviews answered Good (or Hard/Easy in Anki) out of all reviews; learning cards "
-                 "aren't included. Mature = interval of 21 days or more. Car answers older than 30 days count as Anki.</p>")
+                 "aren't included. Mature = interval of 21 days or more. Phone answers older than 30 days count as Anki.</p>")
 
     # Where the time went (from the phone's clip timings)
     name, entries = latest_timing()
     lines = timing_lines(entries)
     if lines:
-        parts.append("<h3>Where the time went (latest drive day)</h3><table>")
+        parts.append("<h3>Where the time went (latest session day)</h3><table>")
         for label, value in lines:
             parts.append(f"<tr><td>{esc(label)}</td><td>{esc(value)}</td></tr>")
         parts.append("</table><p>Medians. Phone delay is the time from your press to the sound starting.</p>")

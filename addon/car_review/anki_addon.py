@@ -1,22 +1,22 @@
-"""Anki side of Car Review.
+"""Anki side of Audio Review.
 
 Automatic:
 - First run: the setup wizard (settings.py) opens by itself, once.
-- When Anki opens (after its opening sync): if there are car grades, show what they'd do,
-  with an Apply button. Then remind you if upcoming car cards still need audio.
-- While Anki is open, like Anki's own sync, nothing runs on a timer: after each Anki sync car
+- When Anki opens (after its opening sync): if there are phone answers, show what they'd do,
+  with an Apply button. Then remind you if upcoming cards still need audio.
+- While Anki is open, like Anki's own sync, nothing runs on a timer: after each Anki sync phone
   grades are picked up the same way and a fresh list goes to the phone if your cards changed;
   after a review session on the laptop a fresh list goes out, so the phone never replays cards
   you've already done here.
-- When Anki closes: send the car list (today plus the next few days, and the next day's exact
+- When Anki closes: send the audio list (today plus the next few days, and the next day's exact
   cards) to your phone. This is quick: only cards that already have audio are sent. If
   "auto_voice" is on and the laptop is plugged in, missing audio is made too, after Anki has closed.
 
-Anki's main screen has a Car Review bar (main_bar.py): what was last sent and what the phone has
-picked up, with Send to Car, Make audio and send, Check phone and Settings buttons.
+Anki's main screen has an Audio Review bar (main_bar.py): what was last sent and what the phone has
+picked up, with Send to phone, Make audio and send, Check phone and Settings buttons.
 
-Tools ▸ Car Review menu: Settings, Send to Car, Prepare audio, Make audio for whole decks,
-Apply car grades, Pair phone, Status, Car stats, Help.
+Tools ▸ Audio Review menu: Settings, Send to phone, Prepare audio, Make audio for whole decks,
+Apply phone answers, Pair phone, Status, Audio stats, Help.
 """
 
 from __future__ import annotations
@@ -57,8 +57,8 @@ def helper_python(windowless: bool = False) -> Path:
 def helper_command(*args: str, windowless: bool = False) -> list[str]:
     python = helper_python(windowless)
     if not python.exists():
-        raise RuntimeError("Car Review's voice isn't set up on this computer yet. "
-                           "Open Tools ▸ Car Review ▸ Settings ▸ Voice and press “Set up the voice”.")
+        raise RuntimeError("Audio Review's voice isn't set up on this computer yet. "
+                           "Open Tools ▸ Audio Review ▸ Settings ▸ Voice and press “Set up the voice”.")
     # The add-on's folder is "car_review" when copied from GitHub, or a number when installed from AnkiWeb.
     return [str(python), "-m", f"{ADDON_DIR.name}.helper", *args]
 
@@ -130,7 +130,7 @@ def remember_settings() -> None:
             run_helper("unschedule")
             marker.unlink()
     except Exception as err:  # never let this get in the way of sending
-        print(f"Car Review: couldn't save the settings for the next day's list: {err}")
+        print(f"Audio Review: couldn't save the settings for the next day's list: {err}")
 
 
 def build(col) -> dict:
@@ -140,7 +140,7 @@ def build(col) -> dict:
 def need_setup() -> bool:
     """True (after offering the settings window) while decks or the voice are still missing."""
     if not setting("decks"):
-        if askUser("Choose which decks to review in the car first. Open Car Review settings?"):
+        if askUser("Choose which decks to hear as audio first. Open Audio Review settings?"):
             open_settings("Decks")
         return True
     if not helper_python().exists():
@@ -153,9 +153,9 @@ def need_setup() -> bool:
 def no_cards_message(pack: dict) -> str:
     skipped = pack.get("skipped") or {}
     if skipped.get("not a cloze card"):
-        return ("No cards to send: Car Review only plays cloze cards, and the chosen decks have none due. "
-                "Choose other decks in Tools ▸ Car Review ▸ Settings.")
-    return "No cards are due in your car decks today or in the next few days."
+        return ("No cards to send: Audio Review only plays cloze cards, and the chosen decks have none due. "
+                "Choose other decks in Tools ▸ Audio Review ▸ Settings.")
+    return "No cards are due in your audio decks today or in the next few days."
 
 
 def send_to_car() -> None:
@@ -170,10 +170,10 @@ def send_to_car() -> None:
         start_send(pack, voice=False)
         missing = missing_audio(pack)
         tooltip(f"Sending {len(pack['cards']) - missing} cards to your phone."
-                + (f" {missing} still need audio (Tools ▸ Car Review ▸ Prepare audio)." if missing else ""),
+                + (f" {missing} still need audio (Tools ▸ Audio Review ▸ Prepare audio)." if missing else ""),
                 period=8000)
 
-    QueryOp(parent=mw, op=build, success=done).with_progress("Building car list…").run_in_background()
+    QueryOp(parent=mw, op=build, success=done).with_progress("Building the card list…").run_in_background()
 
 
 def prepare_audio() -> None:
@@ -194,7 +194,7 @@ def prepare_audio() -> None:
         tooltip(f"Making audio for {missing} cards, then sending {len(pack['cards'])} to your phone. "
                 "Progress shows in its own window.", period=8000)
 
-    QueryOp(parent=mw, op=build, success=done).with_progress("Building car list…").run_in_background()
+    QueryOp(parent=mw, op=build, success=done).with_progress("Building the card list…").run_in_background()
 
 
 def missing_clips(cards: list[dict]) -> int:
@@ -216,7 +216,7 @@ def how_long(clips: int) -> str:
 
 
 def prepare_whole_decks() -> None:
-    """Make audio for every card in the car decks, the ones needed soonest first (Tools ▸ Car
+    """Make audio for every card in the audio decks, the ones needed soonest first (Tools ▸ Audio
     Review ▸ Make audio for whole decks). Only when asked: on a slow computer it takes hours."""
     if need_setup():
         return
@@ -228,9 +228,9 @@ def prepare_whole_decks() -> None:
         todo = missing_clips(active)
         extra = missing_clips(active + suspended) - todo
         box = QMessageBox(mw)
-        box.setWindowTitle("Car Review: make audio for whole decks")
+        box.setWindowTitle("Audio Review: make audio for whole decks")
         box.setText(
-            f"Your car decks have {len(active):,} cards that work as audio. "
+            f"Your audio decks have {len(active):,} cards that work as audio. "
             + (f"<b>{todo:,} clips</b> still need audio: {how_long(todo)}." if todo else "All of them already have audio.")
             + "<br><br>Cards are done in the order you'll need them: the next reviews first, then later ones, "
             "then cards you haven't started yet. It runs in the background at low priority and only while "
@@ -246,7 +246,7 @@ def prepare_whole_decks() -> None:
             return
         chosen = active + (suspended if include and include.isChecked() else [])
         if not missing_clips(chosen):
-            tooltip("Car Review: all those cards already have audio.")
+            tooltip("Audio Review: all those cards already have audio.")
             return
         if not on_charger() and not askUser("Your computer is on battery. Audio is only made while it's "
                                             "plugged in, so it will wait until you plug in. Start anyway?"):
@@ -270,8 +270,8 @@ def on_close() -> None:
             return
         pack = build(mw.col)
         start_send(pack, voice=bool(setting("auto_voice")) and on_charger())
-    except Exception as err:  # closing Anki must never fail because of Car Review
-        print(f"Car Review: couldn't send on close: {err}")
+    except Exception as err:  # closing Anki must never fail because of Audio Review
+        print(f"Audio Review: couldn't send on close: {err}")
 
 
 # ---------- When Anki opens ----------
@@ -284,7 +284,7 @@ def on_profile_open() -> None:
     config = mw.addonManager.getConfig(__name__) or {}
     if not config.get("decks") and not config.get("setup_done"):
         # First run: open the setup wizard once Anki has settled. Only once; after that it's in
-        # Tools ▸ Car Review ▸ Settings.
+        # Tools ▸ Audio Review ▸ Settings.
         config["setup_done"] = True
         mw.addonManager.writeConfig(__name__, config)
         QTimer.singleShot(3_000, first_run)
@@ -313,7 +313,7 @@ _busy = False
 
 
 def keep_in_step_soon(delay_ms: int = 5_000) -> None:
-    """Pick up car grades and send a fresh list shortly (calls close together count once)."""
+    """Pick up phone answers and send a fresh list shortly (calls close together count once)."""
     global _keep_timer
     if _keep_timer is None:
         _keep_timer = QTimer(mw)
@@ -341,7 +341,7 @@ def keep_in_step() -> None:
 
 def send_if_changed() -> None:
     """Send a fresh list if the collection changed since the last one (reviews on the laptop,
-    applied car grades, a sync). Quick and windowless unless there's audio to make."""
+    applied phone answers, a sync). Quick and windowless unless there's audio to make."""
     if not mw.col or mw.col.mod == _last_sent_mod:
         return
 
@@ -352,14 +352,14 @@ def send_if_changed() -> None:
         missing = missing_audio(pack) if voice else 0
         start_send(pack, voice=voice)
         if missing:
-            tooltip(f"Car Review: making audio for {missing} cards in the background, then sending.", period=6000)
+            tooltip(f"Audio Review: making audio for {missing} cards in the background, then sending.", period=6000)
 
-    QueryOp(parent=mw, op=build, success=done).failure(lambda err: print(f"Car Review: {err}")).run_in_background()
+    QueryOp(parent=mw, op=build, success=done).failure(lambda err: print(f"Audio Review: {err}")).run_in_background()
 
 
 def on_state_change(new_state: str, old_state: str) -> None:
-    # After reviewing on the laptop, a fresh list so the car doesn't play those cards again.
-    # Car answers are only picked up when Anki syncs, opens or closes (like Anki's own sync).
+    # After reviewing on the laptop, a fresh list so the phone doesn't play those cards again.
+    # Phone answers are only picked up when Anki syncs, opens or closes (like Anki's own sync).
     if old_state == "review" and new_state != "review":
         QTimer.singleShot(5_000, send_if_changed)
 
@@ -381,13 +381,13 @@ def remind_about_audio() -> None:
     def done(pack: dict) -> None:
         missing = missing_audio(pack)
         if missing:
-            tooltip(f"Car Review: {missing} cards in the next {int(setting('days_ahead')) + 1} days have no audio yet. "
-                    "When plugged in: Tools ▸ Car Review ▸ Prepare audio.", period=12000)
+            tooltip(f"Audio Review: {missing} cards in the next {int(setting('days_ahead')) + 1} days have no audio yet. "
+                    "When plugged in: Tools ▸ Audio Review ▸ Prepare audio.", period=12000)
 
     QueryOp(parent=mw, op=build, success=done).run_in_background()
 
 
-# ---------- Applying car grades ----------
+# ---------- Applying phone answers ----------
 
 _declined: set = set()  # grade sets you pressed Cancel on: not offered again by the automatic checks
 
@@ -400,8 +400,8 @@ def check_grades(mode: str = "manual", then=None) -> None:
         result = run_helper("fetch-grades")
         if result.returncode != 0:
             detail = (result.stderr.strip().splitlines() or [""])[-1][:300]
-            raise RuntimeError("Couldn't download your car answers. Check your internet connection, then try "
-                               f"Tools ▸ Car Review ▸ Apply car grades.\n\nDetails: {detail}")
+            raise RuntimeError("Couldn't download your phone answers. Check your internet connection, then try "
+                               f"Tools ▸ Audio Review ▸ Apply phone answers.\n\nDetails: {detail}")
         names = json.loads(result.stdout.strip() or "[]")
         files = [json.loads(p.read_text(encoding="utf-8")) for p in sorted(INBOX.glob("*.json"))]
         return (plan_grades(col, files) if files else None), names
@@ -417,7 +417,7 @@ def check_grades(mode: str = "manual", then=None) -> None:
             if names:
                 start_helper("delete-grades", *names)
             if mode == "manual":
-                tooltip("No car answers waiting. After a drive, check that the phone shows “✓ all” "
+                tooltip("No phone answers waiting. After a session, check that the phone shows “✓ all” "
                         "next to Grades uploaded.", period=8000)
             after()
             return
@@ -425,22 +425,22 @@ def check_grades(mode: str = "manual", then=None) -> None:
         if on_startup and setting("auto_apply") and not plan.late_days:
             apply_now(plan, names, allow_late=False, then=after)
         elif mode == "auto" and key in _declined:
-            finish()  # you said Cancel to exactly these; Tools ▸ Car Review ▸ Apply car grades offers them again
+            finish()  # you said Cancel to exactly these; Tools ▸ Audio Review ▸ Apply phone answers offers them again
         else:
             confirm_apply(plan, names, then=after, on_cancel=lambda: _declined.add(key))
 
     def failed(err: Exception) -> None:
         if mode == "startup":
-            tooltip("Car Review: couldn't check for car answers (are you offline?). "
-                    "Try Tools ▸ Car Review ▸ Apply car grades later.", period=8000)
+            tooltip("Audio Review: couldn't check for phone answers (are you offline?). "
+                    "Try Tools ▸ Audio Review ▸ Apply phone answers later.", period=8000)
         if mode == "manual":
             showWarning(str(err))
         else:
-            print(f"Car Review: {err}")
+            print(f"Audio Review: {err}")
         finish()
 
     op = QueryOp(parent=mw, op=fetch_and_plan, success=done).failure(failed)
-    (op if on_startup else op.with_progress("Checking car grades…")).run_in_background()
+    (op if on_startup else op.with_progress("Checking phone answers…")).run_in_background()
 
 
 def apply_car_grades() -> None:
@@ -454,12 +454,12 @@ def confirm_apply(plan: Plan, names: list[str], then=None, on_cancel=None) -> No
     agains = plan.grade_count - goods
 
     dialog = QDialog(mw)
-    dialog.setWindowTitle("Car Review: apply car grades")
+    dialog.setWindowTitle("Audio Review: apply phone answers")
     layout = QVBoxLayout(dialog)
-    lines = [f"<b>{plan.grade_count} answers from the car for {len(plan.cards)} cards</b> ({goods} Good, {agains} Again)."]
+    lines = [f"<b>{plan.grade_count} answers from the phone for {len(plan.cards)} cards</b> ({goods} Good, {agains} Again)."]
     if plan.skip_tags:
         lines.append(f"{len(plan.skip_tags)} card(s) you skipped as not audio-friendly will be tagged "
-                     "<i>car-review::skip</i> and left out of future car lists.")
+                     "<i>audio-review::skip</i> and left out of future audio lists.")
     if plan.skipped:
         lines.append("Not applied: " + ", ".join(f"{v} {k}" for k, v in plan.skipped.items()) + ".")
     lines.append("Anki makes a backup first, and <b>Edit ▸ Undo</b> reverts all of it in one step.")
@@ -509,7 +509,7 @@ def apply_now(plan: Plan, names: list[str], allow_late: bool, then=None) -> None
 
     def done(_changes) -> None:
         r = report_box["report"]
-        summary = [f"Applied {sum(r.applied.values())} car answers to {r.cards} cards "
+        summary = [f"Applied {sum(r.applied.values())} phone answers to {r.cards} cards "
                    f"({r.applied.get('Good', 0)} Good, {r.applied.get('Again', 0)} Again)."]
         if r.tagged:
             summary.append(f"Tagged {r.tagged} card(s) as not audio-friendly.")
@@ -538,39 +538,39 @@ def pair_phone() -> None:
 
 def show_status() -> None:
     if not STATUS.exists():
-        showInfo("Nothing has been sent to your phone yet. Close Anki (or use Tools ▸ Car Review ▸ Send to Car) "
+        showInfo("Nothing has been sent to your phone yet. Close Anki (or use Tools ▸ Audio Review ▸ Send to phone) "
                  "to send your cards.")
         return
     s = json.loads(STATUS.read_text())
     if s.get("state") == "error":
         showWarning(f"The last send stopped with an error:\n\n{s.get('error')}\n\n"
-                    f"Try again with Tools ▸ Car Review ▸ Send to Car. Details are in {HOME / 'helper.log'}")
+                    f"Try again with Tools ▸ Audio Review ▸ Send to phone. Details are in {HOME / 'helper.log'}")
         return
     mins = round(s.get("elapsed", 0) / 60)
     lines = [f"Last run: {s.get('state', '?')}."]
     if "ready" in s:
         lines.append(f"Cards on the phone: {s.get('ready', 0)} of {s.get('total', 0)}")
     if s.get("unvoiced"):
-        lines.append(f"Cards still without audio: {s['unvoiced']} (Tools ▸ Car Review ▸ Prepare audio)")
+        lines.append(f"Cards still without audio: {s['unvoiced']} (Tools ▸ Audio Review ▸ Prepare audio)")
     lines.append(f"New audio made: {s.get('made', 0)} clips in {mins} min")
     lines.append("Every list also holds the next day's cards, made by Anki's scheduler, and the phone "
                  "switches to them when Anki's day changes. Sync or close Anki after your last review of the day.")
     showInfo("\n".join(lines))
 
 
-# ---------- Car stats ----------
+# ---------- Audio stats ----------
 
 def show_stats() -> None:
-    """Your drives, car vs Anki retention per deck, and where the time went (stats.py)."""
+    """Your sessions, audio vs Anki retention per deck, and where the time went (stats.py)."""
     if not mw.col:
         return
     from .stats import report_html
 
     def done(text: str) -> None:
-        showText(text, type="html", title="Car Review: car stats", minWidth=720, minHeight=560)
+        showText(text, type="html", title="Audio Review: audio stats", minWidth=720, minHeight=560)
 
     QueryOp(parent=mw, op=lambda col: report_html(col, list(setting("decks") or [])),
-            success=done).failure(lambda err: showWarning(f"Couldn't make the car stats: {err}")).run_in_background()
+            success=done).failure(lambda err: showWarning(f"Couldn't make the audio stats: {err}")).run_in_background()
 
 
 # ---------- Setup ----------
@@ -580,17 +580,17 @@ def open_settings_menu() -> None:
 
 
 def setup() -> None:
-    menu = QMenu("Car Review", mw)
+    menu = QMenu("Audio Review", mw)
     days = int(setting("days_ahead"))
     for label, fn in (("Settings…", open_settings_menu),
                       (None, None),
-                      ("Send to Car", send_to_car),
+                      ("Send to phone", send_to_car),
                       (f"Prepare audio (next {days} days)", prepare_audio),
                       ("Make audio for whole decks…", prepare_whole_decks),
-                      ("Apply car grades…", apply_car_grades),
+                      ("Apply phone answers…", apply_car_grades),
                       ("Pair phone…", pair_phone),
                       ("Status", show_status),
-                      ("Car stats", show_stats),
+                      ("Audio stats", show_stats),
                       (None, None),
                       ("Help", lambda: openLink(HELP_URL))):
         if label is None:
@@ -608,7 +608,7 @@ def setup() -> None:
     gui_hooks.state_did_change.append(on_state_change)
     main_bar.setup({"send": send_to_car, "prepare": prepare_audio, "check": apply_car_grades,
                     "settings": open_settings_menu, "pair": pair_phone}, setting)
-    # No timer: like Anki itself, Car Review syncs when Anki syncs, opens and closes, so a laptop
+    # No timer: like Anki itself, Audio Review syncs when Anki syncs, opens and closes, so a laptop
     # left open all day makes no requests in between.
 
 

@@ -78,7 +78,7 @@ class Voice:
         elif self.engine == "torch":
             self._speak = _torch_engine()
         else:
-            raise RuntimeError("The voice isn't set up on this computer yet (Tools ▸ Car Review ▸ Settings ▸ Voice).")
+            raise RuntimeError("The voice isn't set up on this computer yet (Tools ▸ Audio Review ▸ Settings ▸ Voice).")
 
     def samples(self, text: str):
         """The spoken text as float samples at 24 kHz."""

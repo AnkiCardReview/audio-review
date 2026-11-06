@@ -1,6 +1,6 @@
 # For developers and contributors
 
-Thanks for helping. Car Review is small on purpose: plain Python in Anki, one static web page, and a tiny relay. The guiding rules are **simple**, **automatic**, **never mess up scheduling**, **private**, and **free to run**.
+Thanks for helping. Audio Review is small on purpose: plain Python in Anki, one static web page, and a tiny relay. The guiding rules are **simple**, **automatic**, **never mess up scheduling**, **private**, and **free to run**.
 
 ## How the pieces fit
 
@@ -11,9 +11,9 @@ addon/car_review/      Anki add-on (runs inside Anki), plus the helper it starts
   settings.py          the setup wizard / settings window (decks, options, voice, phone QR)
   voice_setup.py       one-click voice install: uv -> Python 3.12 -> pinned packages -> model
   voice-requirements.txt  hash-pinned packages for the helper (generated, see below)
-  builder.py           builds the car list from Anki's own queue (read-only)
+  builder.py           builds the audio list from Anki's own queue (read-only)
   speech.py            card text -> spoken text (pure Python)
-  apply.py             applies car grades through Anki's scheduler, with all the safety checks
+  apply.py             applies phone answers through Anki's scheduler, with all the safety checks
   common.py            paths (CAR_REVIEW_HOME), relay/app URLs, pairing file
   pairing.py           pairing secret, HKDF key derivation (stdlib), AES-GCM (cryptography)
   helper.py            background process in the helper's own Python: voice, encrypt, upload
@@ -29,7 +29,7 @@ help/                  user guides
 
 **Two Pythons.** Code in `anki_addon.py`, `settings.py`, `builder.py`, `apply.py`, `speech.py` and `voice_setup.py` runs in **Anki's** Python and may use only the standard library, `aqt`/`anki` and `requests`. `helper.py` and `voice.py` run in the **helper's** Python (`~/CarReview/venv`), which has the voice engine and `cryptography`; Anki starts it as `python -m <addon folder>.helper ...` so it keeps running after Anki closes. The folder is `car_review` from GitHub but a number when installed from AnkiWeb, so never hard-code the package name.
 
-**Data flow.** Closing Anki builds the car list (`builder.py`) and writes `~/CarReview/outbox/pack.json`; the helper voices missing clips (cached by text fingerprint in `audio-cache/`), encrypts everything and uploads it to the relay. The phone downloads and decrypts with WebCrypto, plays the cards and uploads encrypted grades. Opening Anki runs `helper fetch-grades`, then `apply.plan_grades` (read-only) and `apply.apply_plan` as one undoable operation.
+**Data flow.** Closing Anki builds the audio list (`builder.py`) and writes `~/CarReview/outbox/pack.json`; the helper voices missing clips (cached by text fingerprint in `audio-cache/`), encrypts everything and uploads it to the relay. The phone downloads and decrypts with WebCrypto, plays the cards and uploads encrypted grades. Opening Anki runs `helper fetch-grades`, then `apply.plan_grades` (read-only) and `apply.apply_plan` as one undoable operation.
 
 ## Running things locally
 Developer tools use a Python 3.12 environment with `anki` (and, for the wizard check, `aqt[qt6]`), plus the helper's packages:
@@ -44,8 +44,8 @@ uv pip install --python .venv "aqt[qt6]==26.9.3" -r addon/car_review/voice-requi
 | `python tools/wizard_check.py` | The setup wizard: decks, order, options, QR, pairing reset, saving. Runs off-screen with a throwaway collection. `--shots help/images` refreshes the screenshots |
 | `python tools/apply_check.py --profile "P" --decks "A" "B"` | Every grade-applying safety rule, on a temporary **copy** of a collection (25 checks) |
 | `python tools/relay_check.py` | The live relay: encryption, write keys, size limits (throwaway box) |
-| `python tools/speech_preview.py --profile "P" --decks "A"` | What the car would say for real cards. Writes `local/`, which git ignores |
-| `python tools/make_pack.py ...` | Builds a car list from a collection copy, for testing the helper |
+| `python tools/speech_preview.py --profile "P" --decks "A"` | What the voice would say for real cards. Writes `local/`, which git ignores |
+| `python tools/make_pack.py ...` | Builds an audio list from a collection copy, for testing the helper |
 
 `collection_copy.py` reads profiles from `%APPDATA%\Anki2` (Windows); adjust the path on other systems. To test the add-on without touching your own setup, set `CAR_REVIEW_HOME` to a scratch folder: the voice, pairing and audio all go there.
 
@@ -70,7 +70,7 @@ The current ONNX engine already works on Macs (CPU), so this is a speed-up, not 
 
 ## Releasing the add-on
 1. Run the checks above.
-2. `python tools/package_addon.py` builds `dist/car_review.ankiaddon` (no caches, no `meta.json`, with a manifest).
+2. `python tools/package_addon.py` builds `dist/audio_review.ankiaddon` (no caches, no `meta.json`, with a manifest).
 3. Test it: Tools ▸ Add-ons ▸ Install from file, in a fresh Anki profile.
 4. Publishing on AnkiWeb (listing text in `ankiweb/listing.md`) and GitHub Releases is done by the project owner, by hand.
 
@@ -82,6 +82,6 @@ The current ONNX engine already works on Macs (CPU), so this is a speed-up, not 
 - Commit with your GitHub noreply email. The license is AGPL v3.
 
 ## Open decisions
-- **Product name.** "Car Review" is fine, but the GitHub org (`AnkiCardReview`) and its Pages address contain "Anki", which is a trademark. Renaming would change the app URL, so pairings would need redoing. Not decided yet.
-- **Defaults for new users:** audio is made automatically when plugged in (`auto_voice` on); car answers are applied only after you click Apply (`auto_apply` off).
+- **Product name:** Audio Review (called Car Review until November 2026; the app moved from `/car-review/` to `/audio-review/`, and the old address forwards). The GitHub org (`AnkiCardReview`) contains "Anki", a trademark; moving to another org would change the app's address again. Not decided yet.
+- **Defaults for new users:** audio is made automatically when plugged in (`auto_voice` on); phone answers are applied only after you click Apply (`auto_apply` off).
 - Whether to keep about a week of audio on the phone, and spoken "next card in N minutes" cues.

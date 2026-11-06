@@ -1,7 +1,7 @@
-"""Car Review's setup wizard, which is also its settings window.
+"""Audio Review's setup wizard, which is also its settings window.
 
-It opens by itself the first time Anki starts with Car Review installed, and from
-Tools ▸ Car Review ▸ Settings (or the Config button in Tools ▸ Add-ons). The steps on the
+It opens by itself the first time Anki starts with Audio Review installed, and from
+Tools ▸ Audio Review ▸ Settings (or the Config button in Tools ▸ Add-ons). The steps on the
 left can be clicked in any order; Next and Back walk through them:
 
     Welcome · Decks · Options · Voice · Phone · Done
@@ -31,18 +31,18 @@ from .common import APP_URL, PAIRING, RELAY, forget_what_phone_has, load_pairing
 APP_URL_FOR_SCREENSHOTS = APP_URL  # the app's address without a pairing code
 
 DEFAULTS = {
-    "decks": [],          # decks for the car, played in this order
+    "decks": [],          # decks to hear as audio, played in this order
     "days_ahead": 1,      # send today's cards plus this many days ahead
     "voice_threads": 3,   # processor threads for making audio (Settings ▸ Voice)
     "voice_gpu": False,   # make audio on the graphics card (needs the NVIDIA engine, Settings ▸ Voice)
-    "auto_apply": False,  # apply car grades on opening without asking (summary shown afterwards)
+    "auto_apply": False,  # apply phone answers on opening without asking (summary shown afterwards)
     "auto_voice": True,   # make missing audio automatically when Anki closes while plugged in
-    "main_bar": True,     # the Car Review bar under the deck list on Anki's main screen
-    "python": "",         # Car Review's Python, if not in the default place
+    "main_bar": True,     # the Audio Review bar under the deck list on Anki's main screen
+    "python": "",         # Audio Review's Python, if not in the default place
     "setup_done": False,  # the setup wizard has been shown once
 }
-HELP_URL = "https://github.com/AnkiCardReview/car-review#readme"
-TROUBLESHOOTING_URL = "https://github.com/AnkiCardReview/car-review/blob/main/help/troubleshooting.md"
+HELP_URL = "https://github.com/AnkiCardReview/audio-review#readme"
+TROUBLESHOOTING_URL = "https://github.com/AnkiCardReview/audio-review/blob/main/help/troubleshooting.md"
 STEPS = ["Welcome", "Decks", "Options", "Voice", "Phone", "Done"]
 
 
@@ -139,7 +139,7 @@ class SettingsDialog(QDialog):
         super().__init__(mw)
         self.config = dict(defaults, **config)
         self.first_run = first_run
-        self.setWindowTitle("Car Review setup" if first_run else "Car Review settings")
+        self.setWindowTitle("Audio Review setup" if first_run else "Audio Review settings")
         self.resize(820, 600)
 
         outer = QHBoxLayout(self)
@@ -205,19 +205,21 @@ class SettingsDialog(QDialog):
 
     # ----- 1. Welcome -----
     def page_welcome(self, layout: QVBoxLayout) -> None:
-        layout.addWidget(heading("Review your Anki cards while you drive"))
+        layout.addWidget(heading("Hear your Anki cards, hands-free"))
         layout.addWidget(text(
-            "Car Review reads your due <b>cloze</b> cards out loud on your phone, and you answer with your "
-            "car's steering-wheel buttons (or your headphones' next/previous track buttons). "
+            "Audio Review reads your due <b>cloze</b> cards out loud on your phone, for walks, the gym, chores "
+            "or the car. You answer with your headphones' next/previous track buttons, a Bluetooth remote, "
+            "big buttons on the screen, or your car's steering-wheel buttons. "
             "Your answers go back into Anki through Anki's own scheduler, exactly as if you had "
             "pressed the buttons in Anki.<br><br>"
             "<b>Setup takes about 10 minutes:</b><ol>"
-            "<li>Choose which decks to review in the car.</li>"
+            "<li>Choose which decks to hear as audio.</li>"
             "<li>Pick a few options (the defaults are fine).</li>"
             "<li>Install the natural voice (a one-time download).</li>"
             "<li>Scan a QR code with your phone.</li></ol>"
-            "After that there's nothing to remember: close Anki before you leave, open it when you arrive.<br><br>"
-            "<b>Safety first:</b> set everything up and press Start <i>before</i> you drive. "
+            "After that there's nothing to remember: close or sync Anki when you're done for the day, and "
+            "open it again later to bring in your answers.<br><br>"
+            "<b>In the car, safety first:</b> set everything up and press Start <i>before</i> you drive. "
             "While driving, use only the steering-wheel buttons; never look at or touch the phone.<br><br>"
             f"<a href='{HELP_URL}'>Read the guide</a> · free and open source, no account needed."))
         layout.addStretch(1)
@@ -226,8 +228,8 @@ class SettingsDialog(QDialog):
     def page_decks(self, layout: QVBoxLayout) -> None:
         layout.addWidget(heading("Which decks?"))
         layout.addWidget(text(
-            "Tick the decks to review in the car. A ticked deck includes its subdecks. "
-            "The car plays one deck at a time, in the order on the right, and within each deck in the "
+            "Tick the decks to hear as audio. A ticked deck includes its subdecks. "
+            "Your phone plays one deck at a time, in the order on the right, and within each deck in the "
             "same order Anki would. Only cloze cards are played (other cards stay for Anki)."))
         row = QHBoxLayout()
         self.tree = QTreeWidget()
@@ -316,7 +318,7 @@ class SettingsDialog(QDialog):
     def page_options(self, layout: QVBoxLayout) -> None:
         layout.addWidget(heading("Options"))
         layout.addWidget(text("The defaults suit most people. You can change these any time in "
-                              "Tools ▸ Car Review ▸ Settings."))
+                              "Tools ▸ Audio Review ▸ Settings."))
         days_row = QHBoxLayout()
         days_row.addWidget(QLabel("Also send cards due in the next"))
         self.days = QSpinBox()
@@ -336,34 +338,34 @@ class SettingsDialog(QDialog):
         layout.addWidget(self.auto_voice)
         layout.addWidget(text("<small>Recommended. The audio is made in the background at low priority, with a "
                               "small progress window, and pauses on battery. Without this, use "
-                              "Tools ▸ Car Review ▸ Prepare audio.</small>"))
+                              "Tools ▸ Audio Review ▸ Prepare audio.</small>"))
         layout.addSpacing(10)
         layout.addWidget(text(
             "<small><b>Tomorrow's cards are ready tonight.</b> Every list sent to your phone also holds the "
             "next day's cards, worked out by Anki's own scheduler on a temporary copy of your collection, "
             "and the phone switches to them when Anki's day changes. Your computer can be off in the "
             "morning. Sync or close Anki after your last review of the day (reviews done on another "
-            "device after that aren't in it; they're skipped when your car answers are applied).</small>"))
+            "device after that aren't in it; they're skipped when your phone answers are applied).</small>"))
         layout.addSpacing(10)
-        self.auto_apply = QCheckBox("Apply my car answers without asking first")
+        self.auto_apply = QCheckBox("Apply my phone answers without asking first")
         self.auto_apply.setChecked(bool(self.config.get("auto_apply")))
         layout.addWidget(self.auto_apply)
-        layout.addWidget(text("<small>Car answers are picked up when Anki opens and each time it syncs (the Sync button or Anki's own automatic sync). Off: Anki shows what your car answers will do and waits for you to click "
+        layout.addWidget(text("<small>Phone answers are picked up when Anki opens and each time it syncs (the Sync button or Anki's own automatic sync). Off: Anki shows what your phone answers will do and waits for you to click "
                               "Apply. On: they're applied straight away and a summary is shown. Either way Anki "
                               "makes a backup first, and Edit ▸ Undo reverts them in one step.</small>"))
         layout.addSpacing(10)
-        self.main_bar = QCheckBox("Show Car Review on Anki's main screen")
+        self.main_bar = QCheckBox("Show Audio Review on Anki's main screen")
         self.main_bar.setChecked(bool(self.config.get("main_bar", True)))
         layout.addWidget(self.main_bar)
         layout.addWidget(text("<small>Under your decks: when cards were last sent, what your phone has "
-                              "downloaded, and Send to Car, Make audio and Check phone buttons.</small>"))
+                              "downloaded, and Send to phone, Make audio and Check phone buttons.</small>"))
         layout.addStretch(1)
 
     # ----- 4. Voice -----
     def page_voice(self, layout: QVBoxLayout) -> None:
         layout.addWidget(heading("The voice"))
         layout.addWidget(text(
-            "Car Review uses <b>Kokoro “Heart”</b>, a natural-sounding voice that runs on this computer. "
+            "Audio Review uses <b>Kokoro “Heart”</b>, a natural-sounding voice that runs on this computer. "
             "Your cards are never sent anywhere to be read out.<br><br>"
             f"<b>One-time download: about {voice_setup.DOWNLOAD_MB} MB</b> (about {voice_setup.DISK_MB} MB on disk), "
             "all into a <i>CarReview</i> folder in your home folder. Nothing is installed system-wide and no "
@@ -397,7 +399,7 @@ class SettingsDialog(QDialog):
         layout.addWidget(text(
             "<small>3 (the default) leaves the computer free while you study. More can be faster on a desktop "
             "while it's not doing much else; on many laptops it makes little difference. "
-            "Tools ▸ Car Review ▸ Make audio for whole decks shows the speed this computer reaches.</small>"))
+            "Tools ▸ Audio Review ▸ Make audio for whole decks shows the speed this computer reaches.</small>"))
         layout.addSpacing(10)
         self.gpu_status = text("Graphics card: checking…")
         layout.addWidget(self.gpu_status)
@@ -508,7 +510,7 @@ class SettingsDialog(QDialog):
             return
         if askUser(f"Download NVIDIA's engine (about {voice_setup.NVIDIA_DOWNLOAD_GB} GB, "
                    f"{voice_setup.NVIDIA_DISK_GB} GB on disk) so audio is made on your graphics card? "
-                   "It's checked like the rest of the voice, and Car Review tests the card afterwards.",
+                   "It's checked like the rest of the voice, and Audio Review tests the card afterwards.",
                    parent=self):
             self.gpu.setChecked(True)
             start_voice_setup(voice_setup.install_gpu)
@@ -528,11 +530,11 @@ class SettingsDialog(QDialog):
             "<li><b>Add it to your Home Screen</b><br>"
             "iPhone (Safari): tap Share <b>□↑</b> ▸ <b>Add to Home Screen</b> ▸ Add.<br>"
             "Android (Chrome): tap <b>⋮</b> ▸ <b>Add to Home screen</b>.</li>"
-            "<li><b>Open Car Review from your Home Screen.</b> It shows “Paired ✓”, then a short "
+            "<li><b>Open Audio Review from your Home Screen.</b> It shows “Paired ✓”, then a short "
             "walk-through of the buttons.</li></ol>"
             "No account, no app store. Your cards and answers are encrypted on this computer and on "
             "the phone, so nobody else (not even the mailbox they pass through) can read them.<br><br>"
-            "<b>Keep this code private</b>: it's the key to your car list."), 1)
+            "<b>Keep this code private</b>: it's the key to your audio list."), 1)
         layout.addLayout(row, 1)
         repair = QPushButton("Phone lost or replaced? Make a new code (the old phone stops working)")
         repair.clicked.connect(self.repair_clicked)
@@ -579,17 +581,18 @@ class SettingsDialog(QDialog):
             "<b>From now on</b><ul>"
             "<li><b>When you close Anki</b>, your due cards are sent to your phone. "
             + ("New cards get their audio while your computer is plugged in.</li>" if self.auto_voice.isChecked()
-               else "New cards need audio first: Tools ▸ Car Review ▸ Prepare audio.</li>") +
+               else "New cards need audio first: Tools ▸ Audio Review ▸ Prepare audio.</li>") +
             "<li><b>Tomorrow's cards</b> go to your phone with each list, and the phone switches to them "
             "when Anki's day changes, so your computer can be off in the morning.</li>" +
             "<li><b>The first time</b>, making audio takes a while (roughly 5–15 seconds per card on a "
             "laptop, much faster on newer Macs), so start it now, ideally plugged in. You can keep using "
             "the computer; a small window shows progress.</li>"
-            "<li><b>Before you drive</b>, open Car Review on your phone (on Wi-Fi if you can) so it "
+            "<li><b>Before you go</b>, open Audio Review on your phone (on Wi-Fi if you can) so it "
             "downloads the cards, then tap <b>Start</b>.</li>"
-            "<li><b>In the car</b>: ⏭ next track = show the answer, then ⏭ again = Good. ⏮ previous "
+            "<li><b>Answering</b> (headphones, lock screen or steering wheel): ⏭ next track = show the "
+            "answer, then ⏭ again = Good. ⏮ previous "
             "track = Again (or repeat the question before the answer); ⏮⏮ goes back a card.</li>"
-            "<li><b>When you open Anki</b> again (or sync it), it picks up your car answers"
+            "<li><b>When you open Anki</b> again (or sync it), it picks up your phone answers"
             + (" and applies them." if self.auto_apply.isChecked() else " with an Apply button.") + "</li></ul>"
             f"Questions? <a href='{HELP_URL}'>Read the guide</a>.")
         self.prepare_button.setEnabled(bool(decks) and bool(self.engine))
@@ -625,20 +628,20 @@ class SettingsDialog(QDialog):
 
                 anki_addon.remember_settings()  # the helper reads the voice settings from there
             except Exception as err:  # saving the settings themselves must not fail over this
-                print(f"Car Review: couldn't pass the settings to the helper yet: {err}")
+                print(f"Audio Review: couldn't pass the settings to the helper yet: {err}")
         try:
             from . import main_bar
 
             main_bar.redraw()  # show or hide the bar on the main screen
         except Exception as err:
-            print(f"Car Review: couldn't redraw the main screen: {err}")
+            print(f"Audio Review: couldn't redraw the main screen: {err}")
         if close:
             self.timer.stop()
             self.accept()
             if not cfg["decks"]:
-                tooltip("Car Review: no decks chosen, so nothing is sent to your phone yet.", period=6000)
+                tooltip("Audio Review: no decks chosen, so nothing is sent to your phone yet.", period=6000)
             else:
-                tooltip("Car Review is set up. Close Anki before you leave and your cards go to your phone.",
+                tooltip("Audio Review is set up. Close or sync Anki and your cards go to your phone.",
                         period=6000)
 
     def reject(self) -> None:
