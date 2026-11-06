@@ -76,7 +76,9 @@ def run_helper(*args: str) -> subprocess.CompletedProcess:
 
 
 def start_helper(*args: str) -> None:
-    """Start the helper on its own; it keeps running (with its own window) after Anki closes."""
+    """Start the helper on its own; it keeps running after Anki closes. Always pythonw.exe: the
+    venv's python.exe is a launcher that starts the real Python, which, detached from any
+    console, would open a blank console window of its own."""
     subprocess.Popen(helper_command(*args, windowless=True), cwd=str(ADDON_DIR.parent), creationflags=_flags(True),
                      start_new_session=sys.platform != "win32")
 
@@ -413,8 +415,7 @@ def check_grades(mode: str = "manual", then=None) -> None:
         plan, names = result
         if plan is None or (not plan.cards and not plan.skip_tags):
             if names:
-                subprocess.Popen(helper_command("delete-grades", *names), cwd=str(ADDON_DIR.parent),
-                                 creationflags=_flags(True))
+                start_helper("delete-grades", *names)
             if mode == "manual":
                 tooltip("No car answers waiting. After a drive, check that the phone shows “✓ all” "
                         "next to Grades uploaded.", period=8000)
@@ -520,8 +521,7 @@ def apply_now(plan: Plan, names: list[str], allow_late: bool, then=None) -> None
         else:
             tooltip("<br>".join(summary) + "<br>Edit ▸ Undo reverts it. Sync when you're ready.", period=10000)
         if not r.failures and not (plan.late_days and not allow_late):
-            subprocess.Popen(helper_command("delete-grades", *names), cwd=str(ADDON_DIR.parent),
-                             creationflags=_flags(True))
+            start_helper("delete-grades", *names)
         if then:
             then()
 
